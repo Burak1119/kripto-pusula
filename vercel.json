@@ -1,4 +1,5 @@
 {
   "outputDirectory": "public",
-  "buildCommand": ""
+  "buildCommand": "",
+  "regions": ["fra1"]
 }

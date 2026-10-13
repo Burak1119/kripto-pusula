@@ -1,0 +1,12 @@
+{
+  "name": "kripto-pusula",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kripto piyasasını haber ve fiyat verisiyle analiz eden karar destek uygulaması",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "bundle": "python3 build.py",
+    "test": "node test/engine.test.js"
+  }
+}

@@ -1,0 +1,592 @@
+<title>Kripto Pusula</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Düzen: tek sütun mobil, geniş ekranda iki sütunlu pano. Alt sekme çubuğu mobilde sabit, masaüstünde üstte. */
+:root {
+  --bg: #ecf0ed;
+  --surface: #fafbf9;
+  --surface2: #e3e9e5;
+  --ink: #13211e;
+  --muted: #55655f;
+  --line: #d3dbd6;
+  --accent: #0e5a50;
+  --needle: #c8731a;
+  --up: #11704f;
+  --on-up: #ffffff;
+  --down: #b83a28;
+  --on-down: #ffffff;
+  --warn: #8f5f0b;
+  --up-bg: #d6ecdf;
+  --down-bg: #f5dcd6;
+  --warn-bg: #f4e6c8;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1514; --surface: #141d1c; --surface2: #1c2826; --ink: #e5eee9; --muted: #8ea39c;
+    --line: #26352f; --accent: #5cc4b0; --needle: #f0a04b; --up: #3dcb93; --on-up: #05241a;
+    --down: #f0715c; --on-down: #2b0b05; --warn: #e3b341; --up-bg: #163628; --down-bg: #3a1c17; --warn-bg: #3a2f12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1514; --surface: #141d1c; --surface2: #1c2826; --ink: #e5eee9; --muted: #8ea39c;
+  --line: #26352f; --accent: #5cc4b0; --needle: #f0a04b; --up: #3dcb93; --on-up: #05241a;
+  --down: #f0715c; --on-down: #2b0b05; --warn: #e3b341; --up-bg: #163628; --down-bg: #3a1c17; --warn-bg: #3a2f12;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+#app { max-width: 1080px; margin-inline: auto; padding-inline: 16px; padding-block: 12px 96px; }
+
+/* üst bar */
+.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-block: 6px 12px; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
+.brand svg { width: 34px; height: 34px; flex: none; }
+.brand b { font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+.tools { display: flex; align-items: center; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--surface2); white-space: nowrap; }
+.pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.pill.live i { background: var(--up); }
+.pill.demo { background: var(--warn-bg); color: var(--warn); }
+.pill.demo i { background: var(--warn); }
+.ctl { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; min-height: 36px; }
+.ctl.icon { width: 36px; padding: 0; display: grid; place-items: center; }
+.banner { background: var(--warn-bg); color: var(--ink); border-radius: 12px; padding: 10px 14px; font-size: 13px; margin-bottom: 12px; }
+.banner b { color: var(--warn); }
+
+/* sekmeler */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
+.tabs button { flex: 1; border: 0; background: none; padding: 8px 4px; border-radius: 10px; font-weight: 600; font-size: 13px; color: var(--muted); display: grid; justify-items: center; gap: 2px; }
+.tabs button svg { width: 22px; height: 22px; }
+.tabs button[aria-selected="true"] { color: var(--accent); background: var(--surface2); }
+@media (min-width: 860px) {
+  #app { padding-bottom: 48px; }
+  .tabs { position: static; background: none; border: 0; padding: 0 0 14px; gap: 6px; justify-content: flex-start; }
+  .tabs button { flex: none; display: flex; gap: 8px; padding: 8px 16px; font-size: 14px; }
+  .tabs button svg { width: 18px; height: 18px; }
+}
+
+/* kartlar ve bölümler */
+h2 { font-family: var(--font-display); font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-width: 0; }
+.grid2 { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 860px) { .grid2 { grid-template-columns: 1fr 1fr; } .span2 { grid-column: 1 / -1; } }
+
+/* piyasa ruh hali */
+.mood { display: grid; gap: 14px; }
+.mood-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mood-label { font-family: var(--font-display); font-weight: 800; font-size: 34px; letter-spacing: -0.03em; line-height: 1.05; }
+.meter { position: relative; height: 12px; border-radius: 99px; background: linear-gradient(90deg, var(--down) 0%, var(--warn) 35%, var(--surface2) 50%, var(--accent) 70%, var(--up) 100%); opacity: .9; }
+.meter .needle { position: absolute; top: -6px; width: 4px; height: 24px; margin-left: -2px; border-radius: 2px; background: var(--needle); box-shadow: 0 0 0 3px var(--surface); }
+.meter-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
+.counts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* coin satırları */
+.rows { display: grid; container-type: inline-size; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 11px 4px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; width: 100%; }
+.rows > .row:first-child { border-top: 0; }
+.row:hover { background: color-mix(in srgb, var(--surface2) 60%, transparent); }
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.av { position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--surface2); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; overflow: hidden; }
+.av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: var(--surface); }
+.nm { min-width: 0; }
+.nm b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nm span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.px { text-align: right; }
+.px .num { display: block; font-size: 14px; }
+.chg { font-size: 12px; font-weight: 600; }
+.chg.up, .t-up { color: var(--up); }
+.chg.dn, .t-dn { color: var(--down); }
+.row .sp { display: none; width: 90px; height: 30px; }
+@container (min-width: 540px) { .row { grid-template-columns: minmax(0, 1fr) 150px 90px 100px; } .row .sp { display: block; } .row .sig { justify-self: end; } }
+.rank { color: var(--muted); font-size: 11px; margin-right: 2px; }
+
+.sig { display: inline-flex; justify-content: center; min-width: 76px; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.s-strongbuy { background: var(--up); color: var(--on-up); }
+.s-buy { background: var(--up-bg); color: var(--up); }
+.s-hold { background: var(--surface2); color: var(--muted); }
+.s-reduce { background: var(--warn-bg); color: var(--warn); }
+.s-sell { background: var(--down-bg); color: var(--down); }
+.s-stable { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+
+svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
+.spark .line { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.spark .area { stroke: none; opacity: .14; }
+.spark.up .line { stroke: var(--up); } .spark.up .area { fill: var(--up); }
+.spark.dn .line { stroke: var(--down); } .spark.dn .area { fill: var(--down); }
+
+/* kontroller */
+.bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.bar input[type="search"] { flex: 1 1 200px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 600; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.more { display: block; margin: 14px auto 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 18px; font-weight: 600; }
+.empty { padding: 28px 8px; text-align: center; color: var(--muted); }
+
+/* haberler */
+.news { display: grid; }
+.news a, .news div.n { display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 12px; padding: 12px 4px; border-top: 1px solid var(--line); text-decoration: none; color: inherit; }
+.news > :first-child { border-top: 0; }
+.news .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; background: var(--muted); }
+.news .dot.p { background: var(--up); } .news .dot.n { background: var(--down); }
+.news b { font-weight: 600; display: block; overflow-wrap: anywhere; }
+.news span { font-size: 12px; color: var(--muted); }
+.news a:hover b { text-decoration: underline; }
+
+/* detay paneli */
+.scrim { position: fixed; inset: 0; z-index: 40; background: rgba(8, 14, 12, .55); display: grid; align-items: end; }
+.sheet { background: var(--bg); border-radius: 20px 20px 0 0; max-height: 92%; overflow-y: auto; padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px)); width: 100%; max-width: 720px; margin-inline: auto; }
+@media (min-width: 860px) { .scrim { align-items: center; } .sheet { border-radius: 20px; max-height: 88%; padding-bottom: 24px; } }
+.sh-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.sh-head .nm { flex: 1; }
+.sh-head h3 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.sheet .price { font-size: 30px; font-weight: 600; margin: 0 0 6px; }
+.chgrow { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.chgrow span { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; font-size: 12px; }
+.chgrow b { font-weight: 600; }
+.verdict { display: grid; gap: 12px; margin-bottom: 14px; }
+.vline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vline .sig { font-size: 13px; padding: 6px 14px; }
+.scorebar { position: relative; height: 10px; border-radius: 99px; background: var(--surface2); }
+.scorebar .fill { position: absolute; top: 0; bottom: 0; border-radius: 99px; }
+.scorebar .fill.p { background: var(--up); } .scorebar .fill.n { background: var(--down); }
+.scorebar .mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: var(--muted); opacity: .6; }
+.why { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.why li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; font-size: 14px; }
+.why li::before { content: ""; width: 9px; height: 9px; margin: 6px 0 0 4px; border-radius: 2px; background: var(--muted); }
+.why li.p::before { background: var(--up); }
+.why li.n::before { background: var(--down); transform: rotate(45deg); }
+.chart { position: relative; height: 130px; margin: 6px 0 4px; border-block: 1px dashed var(--line); }
+.chart .endp { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--needle); box-shadow: 0 0 0 3px var(--surface); }
+.hilo { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.metrics div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.metrics small { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.metrics .num { font-size: 14px; }
+.sheet .panel { margin-bottom: 14px; }
+.actions { display: flex; gap: 8px; }
+.btn { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font-weight: 600; }
+.btn.fav[aria-pressed="true"] { background: var(--needle); border-color: var(--needle); color: #1b1203; }
+.disc { font-size: 12px; color: var(--muted); margin-top: 14px; }
+.foot { margin-top: 22px; font-size: 12px; color: var(--muted); max-width: 70ch; }
+.loading { padding: 60px 0; text-align: center; color: var(--muted); }
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="11" fill="var(--accent)"/><circle cx="20" cy="20" r="12.5" fill="none" stroke="var(--surface)" stroke-width="1.6" opacity=".55"/><path d="M20 7.5 L24 20 L20 32.5 L16 20 Z" fill="var(--surface)" opacity=".28"/><path d="M20 7.5 L24 20 L16 20 Z" fill="var(--needle)"/></svg>
+      <b>Kripto Pusula</b>
+    </div>
+    <div class="tools">
+      <span id="status" class="pill"><i></i><span>Yükleniyor</span></span>
+      <label class="sr" for="cur" style="position:absolute;left:-9999px">Para birimi</label>
+      <select id="cur" class="ctl"><option value="usd">USD</option><option value="try">TRY</option><option value="eur">EUR</option></select>
+      <button id="refresh" class="ctl icon" aria-label="Yenile" title="Yenile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+    </div>
+  </header>
+  <div id="banner"></div>
+  <nav class="tabs" role="tablist" aria-label="Bölümler">
+    <button role="tab" data-tab="pano" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5Z"/></svg>Pano</button>
+    <button role="tab" data-tab="piyasa" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Piyasa</button>
+    <button role="tab" data-tab="haber" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3Z"/><path d="M9 9h6M9 13h6"/></svg>Haberler</button>
+  </nav>
+  <main id="view"><div class="loading">Piyasa taranıyor…</div></main>
+  <p class="foot">Kripto Pusula bir karar destek aracıdır. Puanlar geçmiş fiyat hareketi ve haber başlıklarındaki kelimelerden hesaplanır, geleceği tahmin etmez. Yatırım tavsiyesi değildir. Kaybetmeyi göze alabileceğiniz tutarla işlem yapın.</p>
+</div>
+<div id="scrim" class="scrim" hidden><div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="Coin ayrıntısı"></div></div>
+
+<script>
+// ENGINE START
+const STABLES = new Set(['usdt','usdc','dai','fdusd','usde','tusd','pyusd','usdd','usds','busd','gusd','usdp','frax','lusd','susd','eurc','usdy','usd1','usdg','rlusd','xaut','paxg']);
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
+const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0);
+
+function mkRe(alts) { return new RegExp('(?:^|[^a-zçğıöşü0-9])(?:' + alts + ')', 'g'); }
+const POS_RE = mkRe('surge|rall(?:y|ies|ied)|soar|jump|gain|bullish|record high|all-time high|approv|adopt|partnership|launch|upgrade|breakout|inflow|accumulat|rebound|recover|yüksel|rekor|onay|artış|toparlan|ortaklık');
+const NEG_RE = mkRe('crash|plunge|drop|fall|slump|tumble|hack|exploit|lawsuit|sues|ban(?:ned|s)?(?![a-z])|bearish|dump|outflow|liquidat|fraud|scam|rug pull|delist|sell-?off|investigat|collapse|çök|düşüş|düştü|yasak|dava|soruşturma|saldırı|kayıp');
+function headlineScore(t) {
+  const s = String(t).toLowerCase();
+  const p = (s.match(POS_RE) || []).length, n = (s.match(NEG_RE) || []).length;
+  return clamp(p - n, -2, 2);
+}
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function coinMatcher(c) {
+  const parts = [];
+  const name = String(c.name || '').replace(/\s*\(.*\)\s*/g, '').trim();
+  if (name.length >= 4) parts.push(new RegExp('(?:^|[^A-Za-z0-9])' + escRe(name) + '(?![A-Za-z0-9])', 'i'));
+  const sym = String(c.symbol || '').toUpperCase();
+  if (sym.length >= 3) parts.push(new RegExp('(?:^|[^A-Za-z0-9])' + escRe(sym) + '(?![A-Za-z0-9])'));
+  return (title) => parts.some((re) => re.test(title));
+}
+function newsContext(news, coins) {
+  const scored = news.map((n) => ({ ...n, score: headlineScore(n.title) }));
+  const byCoin = {};
+  for (const c of coins) {
+    if ((c.rank || 9999) > 300) continue;
+    const m = coinMatcher(c);
+    const hits = scored.filter((n) => m(n.title));
+    if (hits.length) byCoin[c.id] = hits;
+  }
+  return { scored, byCoin, market: scored.length ? avg(scored.map((n) => n.score)) : 0 };
+}
+
+function rsi14(s) {
+  if (s.length < 15) return null;
+  let g = 0, l = 0;
+  for (let i = 1; i <= 14; i++) { const d = s[i] - s[i - 1]; if (d >= 0) g += d; else l -= d; }
+  g /= 14; l /= 14;
+  for (let i = 15; i < s.length; i++) { const d = s[i] - s[i - 1]; g = (g * 13 + Math.max(d, 0)) / 14; l = (l * 13 + Math.max(-d, 0)) / 14; }
+  return l === 0 ? 100 : 100 - 100 / (1 + g / l);
+}
+function sparkStats(sp) {
+  if (!sp || sp.length < 20 || sp.some((v) => !(v > 0))) return null;
+  const n = sp.length, h = 168 / n, last = sp[n - 1];
+  const mean = avg(sp);
+  const rets = []; for (let i = 1; i < n; i++) rets.push(Math.log(sp[i] / sp[i - 1]));
+  const mu = avg(rets), sd = Math.sqrt(avg(rets.map((r) => (r - mu) ** 2)));
+  const step = Math.max(1, Math.round(4 / h)), s4 = [];
+  for (let i = n - 1; i >= 0; i -= step) s4.unshift(sp[i]);
+  const hi = Math.max(...sp), lo = Math.min(...sp);
+  const i24 = Math.max(0, n - 1 - Math.round(24 / h));
+  return { last, trend: (last / mean - 1) * 100, vol: sd * Math.sqrt(24 / h) * 100, rsi: rsi14(s4), hi, lo, c7: (last / sp[0] - 1) * 100, c24: (last / sp[i24] - 1) * 100 };
+}
+
+const fmtP = (v, d = 1) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d).replace('.', ',') + '%';
+const f1 = (v) => Math.abs(v).toFixed(1).replace('.', ',');
+
+function analyze(c, ctx) {
+  const st = sparkStats(c.spark);
+  const isStable = STABLES.has(String(c.symbol).toLowerCase());
+  if (isStable) return { signal: 'STABİL', cls: 's-stable', score: 0, risk: 'Düşük', reasons: [{ pos: null, t: 'Değeri bir varlığa sabitlenmiş (stabil/pegli) bir token. Al-sat sinyali üretilmez.' }], st };
+  const c24 = num(c.c24) ?? st?.c24 ?? 0;
+  const c7 = num(c.c7) ?? st?.c7 ?? 0;
+  const c30 = num(c.c30);
+  const R = [];
+  let score = 0;
+
+  const m7 = clamp(c7, -30, 30) / 30 * 30; score += m7;
+  if (c7 >= 15) R.push({ pos: true, t: `Son 7 günde ${fmtP(c7)}: güçlü yukarı momentum.` });
+  else if (c7 >= 3) R.push({ pos: true, t: `Son 7 günde ${fmtP(c7)}: ılımlı yükseliş.` });
+  else if (c7 <= -15) R.push({ pos: false, t: `Son 7 günde ${fmtP(c7)}: belirgin satış baskısı.` });
+  else if (c7 <= -3) R.push({ pos: false, t: `Son 7 günde ${fmtP(c7)}: zayıf seyir.` });
+  else R.push({ pos: null, t: `Son 7 günde ${fmtP(c7)}: yatay seyir.` });
+
+  if (c30 !== null) {
+    score += clamp(c30, -50, 50) / 50 * 20;
+    if (c30 >= 20) R.push({ pos: true, t: `30 günlük trend yukarı (${fmtP(c30, 0)}).` });
+    else if (c30 <= -20) R.push({ pos: false, t: `30 günlük trend aşağı (${fmtP(c30, 0)}).` });
+  }
+  score += clamp(c24, -10, 10);
+  if (c24 > 25) { score -= 15; R.push({ pos: false, t: `24 saatte ${fmtP(c24, 0)} sıçradı. Ani yükselişlerin ardından geri çekilme sık görülür, kovalamak riskli.` }); }
+  else if (c24 < -10) R.push({ pos: false, t: `Son 24 saatte ${fmtP(c24)} düştü.` });
+  if (c7 > 60) { score -= 15; R.push({ pos: false, t: 'Haftalık artış çok sert; aşırı ısınma ihtimali yüksek.' }); }
+
+  let vol = null;
+  if (st) {
+    score += clamp(st.trend, -8, 8) / 8 * 10;
+    if (st.trend > 3) R.push({ pos: true, t: `Fiyat 7 günlük ortalamasının %${f1(st.trend)} üstünde.` });
+    else if (st.trend < -3) R.push({ pos: false, t: `Fiyat 7 günlük ortalamasının %${f1(st.trend)} altında.` });
+    vol = st.vol;
+    if (st.rsi !== null) {
+      const r = st.rsi;
+      if (r >= 75) { score -= 15; R.push({ pos: false, t: `RSI ${r.toFixed(0)}: aşırı alım bölgesi, geri çekilme riski yüksek.` }); }
+      else if (r >= 65) { score -= 5; R.push({ pos: false, t: `RSI ${r.toFixed(0)}: alım bölgesi sınırında, ivme zayıflayabilir.` }); }
+      else if (r >= 45) { score += 5; }
+      else if (r <= 30) { score += 8; R.push({ pos: true, t: `RSI ${r.toFixed(0)}: aşırı satım bölgesi, tepki yükselişi ihtimali var (düşüş sürebilir).` }); }
+    }
+  }
+  const liq = c.mcap > 0 && c.vol > 0 ? c.vol / c.mcap : null;
+  if (liq !== null) {
+    if (liq < 0.02) { score -= 5; R.push({ pos: false, t: `Günlük hacim piyasa değerinin yalnızca %${f1(liq * 100)}'i: alım satımda fiyat kayması riski.` }); }
+    else if (liq > 0.08) { score += 3; R.push({ pos: true, t: `İşlem hacmi güçlü (piyasa değerinin %${f1(liq * 100)}'i).` }); }
+  }
+  const rank = c.rank || 9999;
+  if (rank > 200) score -= 5; else if (rank > 100) score -= 2;
+  if (num(c.ath) !== null && c.ath < -80) R.push({ pos: null, t: `Zirvesinin %${f1(c.ath)} altında; toparlanma uzun sürebilir.` });
+
+  const hits = ctx.byCoin[c.id] || [];
+  if (hits.length) {
+    const a = avg(hits.map((h) => h.score));
+    score += clamp(a * 5, -10, 10);
+    if (a > 0.3) R.push({ pos: true, t: `Haberlerde olumlu söz edilmiş (${hits.length} başlık).` });
+    else if (a < -0.3) R.push({ pos: false, t: `Haberlerde olumsuz söz edilmiş (${hits.length} başlık).` });
+    else R.push({ pos: null, t: `Haberlerde geçiyor (${hits.length} başlık), tonu nötr.` });
+  }
+  score += clamp(ctx.market * 5, -5, 5);
+  if (ctx.market > 0.3) R.push({ pos: true, t: 'Genel haber akışı olumlu.' });
+  else if (ctx.market < -0.3) R.push({ pos: false, t: 'Genel haber akışı olumsuz.' });
+
+  score = Math.round(clamp(score, -100, 100));
+  const hot = c24 > 25 || c7 > 60 || (st && st.rsi !== null && st.rsi >= 75);
+  let signal, cls;
+  if (score >= 45) { signal = 'GÜÇLÜ AL'; cls = 's-strongbuy'; }
+  else if (score >= 20) { signal = 'AL'; cls = 's-buy'; }
+  else if (score > -10) { signal = 'BEKLE'; cls = 's-hold'; }
+  else if (score > -30) { signal = 'AZALT'; cls = 's-reduce'; }
+  else { signal = 'SAT'; cls = 's-sell'; }
+  if (hot && score >= 20) {
+    signal = 'BEKLE'; cls = 's-hold';
+    R.unshift({ pos: false, t: 'Aşırı ısınma nedeniyle sinyal "bekle" seviyesine çekildi. Yükselişi kovalamak yerine geri çekilmeyi beklemek daha güvenli.' });
+  }
+
+  let risk = 'Düşük';
+  if ((vol !== null && vol > 8) || rank > 300) risk = 'Yüksek';
+  else if ((vol !== null && vol > 4) || rank > 100) risk = 'Orta';
+  if (vol !== null) R.push({ pos: null, t: `Günlük oynaklık yaklaşık %${f1(vol)}; risk seviyesi ${risk.toLowerCase()}.` });
+  return { signal, cls, score, risk, reasons: R, st, hot, hits, liq, vol };
+}
+
+function analyzeAll(coins, news) {
+  const ctx = newsContext(news, coins);
+  for (const c of coins) c.a = analyze(c, ctx);
+  const body = coins.filter((c) => c.a.signal !== 'STABİL' && (c.rank || 9999) <= 100);
+  const m = body.length ? avg(body.map((c) => c.a.score)) : 0;
+  const mood = m < -25 ? 'Korku' : m < -8 ? 'Temkinli' : m < 15 ? 'Nötr' : m < 35 ? 'İştahlı' : 'Aşırı iştah';
+  const tally = { buy: 0, hold: 0, sell: 0 };
+  for (const c of coins) { if (c.a.signal === 'GÜÇLÜ AL' || c.a.signal === 'AL') tally.buy++; else if (c.a.signal === 'BEKLE') tally.hold++; else if (c.a.signal !== 'STABİL') tally.sell++; }
+  return { ctx, mood, moodScore: m, tally };
+}
+
+// Örnek veri: sunucu bağlı değilken arayüzü göstermek için. Gerçek piyasa değerleri değildir.
+function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const DEMO_LIST = [['bitcoin','btc','Bitcoin',64000,1250],['ethereum','eth','Ethereum',3100,370],['tether','usdt','Tether',1,110],['ripple','xrp','XRP',0.62,34],['binancecoin','bnb','BNB',580,85],['solana','sol','Solana',150,70],['usd-coin','usdc','USDC',1,34],['dogecoin','doge','Dogecoin',0.14,20],['tron','trx','TRON',0.13,11],['cardano','ada','Cardano',0.45,16],['chainlink','link','Chainlink',14,8.5],['avalanche-2','avax','Avalanche',28,11],['stellar','xlm','Stellar',0.11,3.2],['sui','sui','Sui',1.9,5.5],['the-open-network','ton','Toncoin',5.4,13],['shiba-inu','shib','Shiba Inu',0.000018,10.5],['hedera-hashgraph','hbar','Hedera',0.07,2.7],['litecoin','ltc','Litecoin',70,5.2],['polkadot','dot','Polkadot',5.2,7.4],['uniswap','uni','Uniswap',7.8,4.7],['near','near','NEAR Protocol',5.1,5.4],['aptos','apt','Aptos',8.6,3.9],['pepe','pepe','Pepe',0.0000095,4],['arbitrum','arb','Arbitrum',0.75,2.9],['cosmos','atom','Cosmos Hub',6.6,2.6],['aave','aave','Aave',160,2.4],['filecoin','fil','Filecoin',4.4,2.5],['render-token','render','Render',6.2,3.2],['injective-protocol','inj','Injective',19,1.8],['optimism','op','Optimism',1.7,2.1],['maker','mkr','Maker',1500,1.4],['the-graph','grt','The Graph',0.17,1.6],['algorand','algo','Algorand',0.15,1.2],['bonk','bonk','Bonk',0.000021,1.5],['celestia','tia','Celestia',4.6,1.1],['sei-network','sei','Sei',0.38,1.3],['jupiter-exchange-solana','jup','Jupiter',0.8,1.1],['ondo-finance','ondo','Ondo',0.9,1.3],['worldcoin-wld','wld','Worldcoin',2.1,1.2],['floki','floki','FLOKI',0.00014,1.3],['dai','dai','Dai',1,5.3]];
+function makeDemo() {
+  const coins = DEMO_LIST.map((d, i) => {
+    const r = rng(1000 + i * 77), n = 84;
+    const vol = 0.003 + r() * 0.012 + i * 0.0001, drift = (r() - 0.46) * 0.004;
+    const stable = ['usdt','usdc','dai'].includes(d[1]);
+    let v = 1; const raw = [v];
+    for (let k = 1; k < n; k++) { v *= 1 + (stable ? (r() - 0.5) * 0.0004 : drift + (r() - 0.5) * 2 * vol); raw.push(v); }
+    if (i === 22 || i === 33) for (let k = n - 14; k < n; k++) raw[k] *= 1 + (k - (n - 15)) * 0.025;
+    const scale = d[3] / raw[n - 1];
+    const spark = raw.map((x) => Number((x * scale).toPrecision(6)));
+    const last = spark[n - 1], prev = spark[n - 2];
+    return {
+      id: d[0], symbol: d[1], name: d[2], image: '', price: last, mcap: d[4] * 1e9, rank: i + 1,
+      vol: d[4] * 1e9 * (stable ? 0.6 : 0.025 + r() * 0.12),
+      c1h: (last / prev - 1) * 50, c24: (last / spark[n - 13] - 1) * 100, c7: (last / spark[0] - 1) * 100,
+      c30: stable ? 0 : (last / spark[0] - 1) * 100 * (0.8 + r() * 1.6) + (r() - 0.5) * 12,
+      ath: stable ? -0.5 : -(5 + r() * 85), spark,
+    };
+  });
+  const now = Date.now(), H = 3600e3;
+  const news = [
+    ['Örnek başlık: Bitcoin ETF\'lerine net giriş sürüyor, piyasada iyimserlik artıyor', 1],
+    ['Örnek başlık: Ethereum ağ yükseltmesi için tarih netleşti', 2],
+    ['Örnek başlık: Solana tabanlı büyük bir protokolde güvenlik açığı, hack iddiası inceleniyor', 3],
+    ['Örnek başlık: Düzenleyici kurum bir altcoin borsası hakkında dava açtı', 5],
+    ['Örnek başlık: XRP için kurumsal ortaklık haberi yatırımcıyı hareketlendirdi', 6],
+    ['Örnek başlık: Dogecoin ödemeleri yeni bir platformda kabul edilmeye başlandı', 8],
+    ['Örnek başlık: Piyasalarda belirsizlik, yatırımcılar temkinli', 10],
+    ['Örnek başlık: Chainlink yeni bir kurumsal entegrasyonu duyurdu, LINK toparlanıyor', 12],
+    ['Örnek başlık: Küçük bir meme coin sert çöküş yaşadı, işlem hacmi eridi', 15],
+    ['Örnek başlık: Stablecoin piyasa değeri yeni rekora ulaştı', 20],
+  ].map(([title, h]) => ({ title, link: '', source: 'Örnek', date: now - h * H }));
+  return { coins, news };
+}
+// ENGINE END
+
+/* ---------- Arayüz ---------- */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('kp_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('kp_' + k, JSON.stringify(v)); } catch (e) {} },
+};
+const S = {
+  tab: store.get('tab', 'pano'), cur: store.get('cur', 'usd'), favs: store.get('favs', []),
+  coins: [], news: [], info: null, mode: 'loading', updated: 0,
+  q: '', filter: 'hepsi', sort: 'mcap', shown: 40, sel: null,
+};
+const CUR_LOCALE = { usd: 'USD', try: 'TRY', eur: 'EUR' };
+function money(v) {
+  if (v === null || v === undefined || !isFinite(v)) return '—';
+  const o = { style: 'currency', currency: CUR_LOCALE[S.cur] };
+  if (Math.abs(v) >= 1) { o.minimumFractionDigits = 2; o.maximumFractionDigits = 2; } else { o.maximumSignificantDigits = 4; }
+  return new Intl.NumberFormat('tr-TR', o).format(v);
+}
+const big = (v) => (v ? new Intl.NumberFormat('tr-TR', { style: 'currency', currency: CUR_LOCALE[S.cur], notation: 'compact', maximumFractionDigits: 1 }).format(v) : '—');
+const pct = (v) => (num(v) === null ? '—' : fmtP(v));
+const cc = (v) => (num(v) === null ? '' : v >= 0 ? 'up' : 'dn');
+function ago(ms) {
+  const m = Math.max(1, Math.round((Date.now() - ms) / 60000));
+  if (m < 60) return m + ' dk önce';
+  if (m < 1440) return Math.round(m / 60) + ' sa önce';
+  return Math.round(m / 1440) + ' gün önce';
+}
+function sparkSvg(vals, w = 100, h = 32) {
+  if (!vals || vals.length < 2) return '';
+  const mn = Math.min(...vals), mx = Math.max(...vals), rg = mx - mn || 1, n = vals.length;
+  const pts = vals.map((v, i) => [(i / (n - 1)) * w, h - 2 - ((v - mn) / rg) * (h - 4)]);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+  const up = vals[n - 1] >= vals[0];
+  return `<svg class="spark ${up ? 'up' : 'dn'}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path class="area" d="${line}L${w} ${h}L0 ${h}Z"/><path class="line" d="${line}"/></svg>`;
+}
+// Logo: önce CoinGecko'nun verdiği resim, olmazsa sembole göre açık kaynak ikon seti, o da yoksa harfler.
+const iconUrl = (sym) => 'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/128/color/' + String(sym).toLowerCase().replace(/[^a-z0-9]/g, '') + '.png';
+function imgFail(el) { if (el.dataset.f === '1') { el.remove(); return; } el.dataset.f = '1'; el.src = iconUrl(el.dataset.s); }
+window.imgFail = imgFail;
+const avatar = (c) => `<span class="av">${esc(String(c.symbol).slice(0, 3).toUpperCase())}<img src="${esc(c.image || iconUrl(c.symbol))}" data-s="${esc(String(c.symbol))}" data-f="${c.image ? '0' : '1'}" alt="" loading="lazy" onerror="imgFail(this)"></span>`;
+function row(c) {
+  return `<button class="row" data-coin="${esc(c.id)}">
+    <span class="who">${avatar(c)}<span class="nm"><b>${esc(c.name)}</b><span><span class="rank num">#${c.rank ?? '–'}</span> ${esc(String(c.symbol).toUpperCase())}</span></span></span>
+    <span class="px"><span class="num">${money(c.price)}</span><span class="chg num ${cc(c.c24)}">${pct(c.c24)}</span></span>
+    <span class="sp">${sparkSvg(c.spark)}</span>
+    <span class="sig ${c.a.cls}">${c.a.signal}</span></button>`;
+}
+const byId = (id) => S.coins.find((c) => c.id === id);
+
+/* ---------- Görünümler ---------- */
+function viewPano() {
+  const i = S.info;
+  if (!i) return '<div class="loading">Piyasa taranıyor…</div>';
+  const pool = S.coins.filter((c) => c.a.signal !== 'STABİL' && (c.rank || 9999) <= 200);
+  const best = pool.filter((c) => c.a.score >= 20 && c.a.risk !== 'Yüksek' && !c.a.hot).sort((a, b) => b.a.score - a.a.score).slice(0, 8);
+  const weak = pool.filter((c) => c.a.score <= -10).sort((a, b) => a.a.score - b.a.score).slice(0, 4);
+  const hotOnes = pool.filter((c) => c.a.hot && !weak.includes(c)).sort((a, b) => (b.c24 ?? 0) - (a.c24 ?? 0)).slice(0, 3);
+  const worst = [...weak, ...hotOnes];
+  const needle = clamp(50 + i.moodScore * 0.9, 3, 97);
+  const news = i.ctx.scored.slice(0, 6);
+  return `<div class="grid2">
+  <section class="panel mood span2"><div class="mood-head"><div><div class="sub">Piyasa ruh hali</div><div class="mood-label">${i.mood}</div></div>
+    <div class="counts"><span class="sig s-buy">${i.tally.buy} al</span><span class="sig s-hold">${i.tally.hold} bekle</span><span class="sig s-sell">${i.tally.sell} sat/azalt</span></div></div>
+    <div><div class="meter"><span class="needle" style="left:${needle}%"></span></div><div class="meter-scale"><span>Korku</span><span>Nötr</span><span>İştah</span></div></div>
+    <div class="sub">${S.coins.length} coin tarandı. İlk 100 coinin ortalama puanı ${i.moodScore.toFixed(0).replace('-', '−')}, haber akışı ${i.ctx.market > 0.3 ? 'olumlu' : i.ctx.market < -0.3 ? 'olumsuz' : 'nötr'}.</div></section>
+  <section class="panel"><h2>Öne çıkan alım adayları</h2><div class="sub" style="margin-bottom:6px">Puanı yüksek, aşırı ısınmamış, riski yüksek olmayanlar</div>
+    <div class="rows">${best.length ? best.map(row).join('') : '<div class="empty">Şu an güçlü bir aday yok. Beklemek de bir karardır.</div>'}</div></section>
+  <section class="panel"><h2>Uzak durulacaklar</h2><div class="sub" style="margin-bottom:6px">Zayıf trend ya da aşırı ısınmış coinler</div>
+    <div class="rows">${worst.length ? worst.map(row).join('') : '<div class="empty">Belirgin bir uyarı yok.</div>'}</div></section>
+  <section class="panel span2"><h2>Son haberler</h2>${newsList(news)}</section></div>`;
+}
+function newsList(list) {
+  if (!list.length) return '<div class="empty">Haber alınamadı.</div>';
+  return `<div class="news">${list.map((n) => {
+    const d = `<span class="dot ${n.score > 0 ? 'p' : n.score < 0 ? 'n' : ''}"></span><span><b>${esc(n.title)}</b><span>${esc(n.source)} · ${ago(n.date)}</span></span>`;
+    return n.link ? `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer">${d}</a>` : `<div class="n">${d}</div>`;
+  }).join('')}</div>`;
+}
+function filtered() {
+  const q = S.q.trim().toLowerCase();
+  let l = S.coins.filter((c) => !q || c.name.toLowerCase().includes(q) || String(c.symbol).toLowerCase().includes(q));
+  const f = S.filter;
+  if (f === 'al') l = l.filter((c) => c.a.signal === 'AL' || c.a.signal === 'GÜÇLÜ AL');
+  else if (f === 'bekle') l = l.filter((c) => c.a.signal === 'BEKLE');
+  else if (f === 'sat') l = l.filter((c) => c.a.signal === 'SAT' || c.a.signal === 'AZALT');
+  else if (f === 'fav') l = l.filter((c) => S.favs.includes(c.id));
+  const key = { mcap: (c) => c.rank ?? 1e9, skor: (c) => -c.a.score, c24: (c) => -(c.c24 ?? -1e9), c7: (c) => -(c.c7 ?? -1e9), hacim: (c) => -(c.vol ?? 0) }[S.sort];
+  return l.sort((a, b) => key(a) - key(b));
+}
+function viewPiyasa() {
+  if (!S.info) return '<div class="loading">Piyasa taranıyor…</div>';
+  const l = filtered();
+  const chip = (k, t) => `<button class="chip" data-filter="${k}" aria-pressed="${S.filter === k}">${t}</button>`;
+  return `<div class="bar"><input id="q" type="search" placeholder="Coin ara (ör. bitcoin, sol)" value="${esc(S.q)}" aria-label="Coin ara">
+    <select id="sort" class="ctl" aria-label="Sırala">${[['mcap', 'Piyasa değeri'], ['skor', 'Puan'], ['c24', '24 saat'], ['c7', '7 gün'], ['hacim', 'Hacim']].map(([k, t]) => `<option value="${k}"${S.sort === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
+    <div class="chips">${chip('hepsi', 'Hepsi')}${chip('al', 'Al')}${chip('bekle', 'Bekle')}${chip('sat', 'Sat / azalt')}${chip('fav', '★ Favoriler (' + S.favs.length + ')')}</div>
+    <section class="panel"><div class="sub" style="margin-bottom:4px">${l.length} coin</div>
+    <div class="rows">${l.length ? l.slice(0, S.shown).map(row).join('') : '<div class="empty">Sonuç yok.</div>'}</div>
+    ${l.length > S.shown ? `<button class="more" id="more">Daha fazla göster (${l.length - S.shown})</button>` : ''}</section>`;
+}
+function viewHaber() {
+  if (!S.info) return '<div class="loading">Haberler yükleniyor…</div>';
+  return `<section class="panel"><h2>Haber akışı</h2><div class="sub" style="margin-bottom:6px">Nokta rengi başlığın tonunu gösterir: yeşil olumlu, kırmızı olumsuz, gri nötr.</div>${newsList(S.info.ctx.scored)}</section>`;
+}
+function render() {
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)));
+  const v = $('#view');
+  const keep = document.activeElement && document.activeElement.id === 'q' ? document.activeElement.selectionStart : null;
+  v.innerHTML = S.tab === 'pano' ? viewPano() : S.tab === 'piyasa' ? viewPiyasa() : viewHaber();
+  if (keep !== null) { const q = $('#q'); q.focus(); q.setSelectionRange(keep, keep); }
+  const st = $('#status');
+  st.className = 'pill ' + (S.mode === 'live' ? 'live' : S.mode === 'demo' ? 'demo' : '');
+  st.lastElementChild.textContent = S.mode === 'live' ? 'Canlı · ' + ago(S.updated) : S.mode === 'demo' ? 'Örnek veri' : 'Yükleniyor';
+  $('#banner').innerHTML = S.mode === 'demo' ? '<div class="banner"><b>Örnek veri gösteriliyor.</b> Canlı fiyat ve haber akışı için uygulamanın sunucu kısmının çalışması gerekir (README dosyasına bakın). Aşağıdaki fiyatlar ve haberler gerçek değildir, yalnızca arayüzü göstermek içindir.</div>' : '';
+}
+
+/* ---------- Detay paneli ---------- */
+function openSheet(id) {
+  const c = byId(id); if (!c) return;
+  S.sel = id;
+  const a = c.a, st = a.st, isFav = S.favs.includes(id);
+  const fill = a.score >= 0 ? `left:50%;width:${a.score / 2}%` : `right:50%;width:${-a.score / 2}%`;
+  const hi = st ? st.hi : null, lo = st ? st.lo : null;
+  const endY = st ? 100 - ((st.last - lo) / (hi - lo || 1)) * 100 : 50;
+  const metric = (k, v) => `<div><small>${k}</small><span class="num">${v}</span></div>`;
+  $('#sheet').innerHTML = `
+    <div class="sh-head">${avatar(c)}<span class="nm"><h3>${esc(c.name)}</h3><span>#${c.rank ?? '–'} · ${esc(String(c.symbol).toUpperCase())}</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
+    <p class="price num">${money(c.price)}</p>
+    <div class="chgrow">${[['1 sa', c.c1h], ['24 sa', c.c24], ['7 gün', c.c7], ['30 gün', c.c30]].map(([k, v]) => `<span>${k} <b class="num ${cc(v) === 'up' ? 't-up' : cc(v) === 'dn' ? 't-dn' : ''}">${pct(v)}</b></span>`).join('')}</div>
+    <section class="panel verdict"><div class="vline"><span class="sig ${a.cls}">${a.signal}</span><span class="sub">Puan <b class="num">${a.score}</b> / 100 · Risk: <b>${a.risk}</b>${a.hot ? ' · <b class="t-dn">aşırı ısınmış</b>' : ''}</span></div>
+      ${a.signal === 'STABİL' ? '' : `<div class="scorebar" role="img" aria-label="Puan ${a.score}"><span class="mid"></span><span class="fill ${a.score >= 0 ? 'p' : 'n'}" style="${fill}"></span></div>`}
+      <ul class="why">${a.reasons.map((r) => `<li class="${r.pos === true ? 'p' : r.pos === false ? 'n' : ''}">${esc(r.t)}</li>`).join('')}</ul></section>
+    ${st ? `<section class="panel"><h2>Son 7 gün</h2><div class="chart">${sparkSvg(c.spark, 100, 100)}<span class="endp" style="left:100%;top:${endY.toFixed(1)}%"></span></div><div class="hilo num"><span>En düşük ${money(lo)}</span><span>En yüksek ${money(hi)}</span></div></section>` : ''}
+    <section class="panel"><div class="metrics">${metric('Piyasa değeri', big(c.mcap))}${metric('24 sa hacim', big(c.vol))}${metric('Hacim / değer', a.liq ? '%' + f1(a.liq * 100) : '—')}${metric('Zirveden uzaklık', num(c.ath) === null ? '—' : pct(c.ath, 0))}${metric('RSI (7 gün)', st && st.rsi !== null ? st.rsi.toFixed(0) : '—')}${metric('Günlük oynaklık', st ? '%' + f1(st.vol) : '—')}</div></section>
+    ${(a.hits || []).length ? `<section class="panel"><h2>Bu coinle ilgili haberler</h2>${newsList(a.hits.slice(0, 5))}</section>` : ''}
+    <div class="actions"><button class="btn fav" id="fav" aria-pressed="${isFav}">${isFav ? '★ Favorilerde' : '☆ Favoriye ekle'}</button></div>
+    <p class="disc">Bu puan yatırım tavsiyesi değildir. Fiyat hareketi ve haber başlıklarındaki kelimelerden otomatik hesaplanır.</p>`;
+  $('#scrim').hidden = false;
+  $('#close').focus();
+}
+function closeSheet() { $('#scrim').hidden = true; S.sel = null; }
+
+/* ---------- Veri ---------- */
+async function getJson(url) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 12000);
+  try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return await r.json(); } finally { clearTimeout(t); }
+}
+async function load(manual) {
+  if (manual) { S.mode = S.coins.length ? S.mode : 'loading'; }
+  let coins, news = [], mode = 'live', updated = Date.now();
+  try {
+    const [cj, nj] = await Promise.all([getJson('/api/coins?vs=' + S.cur), getJson('/api/news').catch(() => ({ news: [] }))]);
+    if (!cj || !Array.isArray(cj.coins) || !cj.coins.length) throw new Error('boş');
+    coins = cj.coins; news = nj.news || []; updated = cj.updated || updated;
+  } catch (e) {
+    const d = makeDemo(); coins = d.coins; news = d.news; mode = 'demo';
+  }
+  S.coins = coins; S.news = news; S.mode = mode; S.updated = updated;
+  S.info = analyzeAll(S.coins, S.news);
+  render();
+  if (S.sel) openSheet(S.sel);
+}
+
+/* ---------- Olaylar ---------- */
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, .scrim'); if (!t) return;
+  if (t.dataset.tab) { S.tab = t.dataset.tab; store.set('tab', S.tab); render(); window.scrollTo(0, 0); }
+  else if (t.dataset.coin) openSheet(t.dataset.coin);
+  else if (t.dataset.filter) { S.filter = t.dataset.filter; S.shown = 40; render(); }
+  else if (t.id === 'more') { S.shown += 60; render(); }
+  else if (t.id === 'close' || (t.id === 'scrim' && e.target === t)) closeSheet();
+  else if (t.id === 'refresh') load(true);
+  else if (t.id === 'fav') {
+    S.favs = S.favs.includes(S.sel) ? S.favs.filter((x) => x !== S.sel) : [...S.favs, S.sel];
+    store.set('favs', S.favs); openSheet(S.sel); render();
+  }
+});
+document.addEventListener('input', (e) => { if (e.target.id === 'q') { S.q = e.target.value; S.shown = 40; render(); } });
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'sort') { S.sort = e.target.value; render(); }
+  else if (e.target.id === 'cur') { S.cur = e.target.value; store.set('cur', S.cur); load(); }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#scrim').hidden) closeSheet(); });
+$('#cur').value = S.cur;
+if (!['pano', 'piyasa', 'haber'].includes(S.tab)) S.tab = 'pano';
+load();
+setInterval(() => { if (S.mode === 'live' && !document.hidden && $('#scrim').hidden) load(); }, 120000);
+</script>

@@ -326,6 +326,15 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 .banner.ok b { color: var(--up); }
 .imp-actions { display: flex; gap: 8px; margin-top: 8px; }
 #importbar:empty { display: none; }
+
+#tip:empty { display: none; }
+.brief .brief-main { font-family: var(--font-display); font-size: clamp(20px, 5vw, 26px); font-weight: 800; letter-spacing: -.02em; margin: 4px 0 6px; }
+.brief-list { margin: 6px 0 10px; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+.bt { display: grid; font-size: 13px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.bt-h, .bt-r { display: grid; grid-template-columns: 1.5fr .7fr 1fr .8fr; gap: 6px; padding: 8px 12px; align-items: center; }
+.bt-h { background: var(--surface2); color: var(--muted); font-size: 11.5px; font-weight: 700; }
+.bt-r + .bt-r { border-top: 1px solid var(--line); }
+.bt-h span:nth-child(n+2), .bt-r span:nth-child(n+2) { text-align: right; }
 </style>
 </head>
 <body>
@@ -348,6 +357,7 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
   </div>
   <div id="banner"></div>
   <div id="importbar"></div>
+  <div id="tip"></div>
   <nav class="tabs" role="tablist" aria-label="Bölümler">
     <button role="tab" data-tab="pano" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5Z"/></svg>Pano</button>
     <button role="tab" data-tab="piyasa" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Piyasa</button>
@@ -867,6 +877,95 @@ function portSummary(rows) {
   for (const x of Object.values(g)) { x.pl = x.costKnown > 0 ? x.valueKnown - x.costKnown : null; x.plp = x.costKnown > 0 ? (x.pl / x.costKnown) * 100 : null; }
   return Object.values(g).sort((a, b) => (a.cur === 'TRY' ? -1 : 0) - (b.cur === 'TRY' ? -1 : 0) || b.n - a.n);
 }
+/* ---- Kur, portföy grafiği, haberler, sinyal değişimi ---- */
+// fx: { USD: 1 dolar kaç lira, EUR: 1 euro kaç lira }. Kur yoksa null döner, uydurulmaz.
+function fxConv(v, from, to, fx) {
+  if (v === null || v === undefined) return null;
+  if (from === to) return v;
+  const a = from === 'TRY' ? 1 : fx && fx[from], b = to === 'TRY' ? 1 : fx && fx[to];
+  return a > 0 && b > 0 ? (v * a) / b : null;
+}
+function portGrand(groups, fx, target) {
+  let value = 0, day = 0, hasDay = false;
+  for (const g of groups) {
+    const v = fxConv(g.value, g.cur, target, fx); if (v === null) return null;
+    value += v;
+    if (g.hasDay) { day += fxConv(g.day, g.cur, target, fx); hasDay = true; }
+  }
+  return { value, day, hasDay, cur: target };
+}
+// Bugünkü miktarlar sabit kabul edilerek, fiyat çizgilerinden portföy değerinin geçmişi.
+function portSeries(rows, fx, target) {
+  const list = [];
+  for (const r of rows) {
+    const it = r.it, sp = it && it.spark;
+    if (!sp || sp.length < 8) continue;
+    const k = fxConv(1, r.c.cur, target, fx); if (k === null) continue;
+    list.push({ q: r.h.qty, k, sp });
+  }
+  if (!list.length) return null;
+  const n = Math.min(...list.map((x) => x.sp.length)), values = Array(n).fill(0);
+  for (const x of list) { const off = x.sp.length - n; for (let i = 0; i < n; i++) values[i] += x.q * x.sp[off + i] * x.k; }
+  return { values, used: list.length, total: rows.length };
+}
+// Elindeki varlıklarla ilgili haberler (aynı haber birden çok varlığa aitse etiketler birleşir).
+function portNews(rows) {
+  const out = [], idx = new Map();
+  for (const r of rows) for (const n of ((r.it && r.it.a && r.it.a.hits) || [])) {
+    const k = n.link || n.title, tag = String(r.h.sym).toUpperCase();
+    if (idx.has(k)) { const o = idx.get(k); if (!o.tags.includes(tag)) o.tags.push(tag); continue; }
+    const o = { ...n, tags: [tag] }; idx.set(k, o); out.push(o);
+  }
+  return out.sort((a, b) => b.date - a.date);
+}
+const SIG_RANK = { 'GÜÇLÜ AL': 2, 'AL': 1, 'BEKLE': 0, 'AZALT': -1, 'SAT': -2 };
+function portSignals(rows) {
+  const o = {};
+  for (const r of rows) if (r.it && r.it.a && SIG_RANK[r.it.a.signal] !== undefined) o[r.h.id] = r.it.a.signal;
+  return o;
+}
+// Önceki ve şimdiki sinyaller arasındaki değişimler; worse = sinyal kötüleşti.
+function sigChanges(prev, cur) {
+  const out = [];
+  for (const id of Object.keys(cur || {})) {
+    const a = prev && prev[id], b = cur[id];
+    if (a && a !== b && SIG_RANK[a] !== undefined) out.push({ id, from: a, to: b, worse: SIG_RANK[b] < SIG_RANK[a] });
+  }
+  return out;
+}
+
+/* ---- Sinyal karnesi: geçmişte verilen sinyallerden sonra fiyat ne yapmış? ---- */
+const btNew = () => ({ al: [], bekle: [], sat: [], all: [] });
+const btBucket = (s) => (s === 'GÜÇLÜ AL' || s === 'AL' ? 'al' : s === 'BEKLE' ? 'bekle' : s === 'AZALT' || s === 'SAT' ? 'sat' : null);
+// Hisse: günlük kapanışlar, h iş günü sonrasına bakılır. Analiz o günkü veriyle, geleceği görmeden yapılır.
+function btStock(cl, store, h) {
+  h = h || 5;
+  for (let t = 30; t + h < cl.length; t++) {
+    const b = btBucket(analyzeStock(cl.slice(0, t + 1), null, [], 0).signal); if (!b) continue;
+    const f = (cl[t + h] / cl[t] - 1) * 100;
+    store[b].push(f); store.all.push(f);
+  }
+}
+// Coin: 2 saatte bir kapanışlar (84 nokta = 7 gün), h nokta sonrasına bakılır (varsayılan 7 gün).
+function btCoin(sp, meta, store, h) {
+  h = h || 84;
+  const ctx = { byCoin: {}, market: 0 };
+  for (let k = 360; k + h < sp.length; k += 12) {
+    const c = { ...meta, price: sp[k], spark: sp.slice(k - 84, k + 1), c1h: null, c24: (sp[k] / sp[k - 12] - 1) * 100, c7: (sp[k] / sp[k - 84] - 1) * 100, c30: (sp[k] / sp[k - 360] - 1) * 100 };
+    const b = btBucket(analyze(c, ctx).signal); if (!b) continue;
+    const f = (sp[k + h] / sp[k] - 1) * 100;
+    store[b].push(f); store.all.push(f);
+  }
+}
+function btSummary(st) {
+  const f = (a) => (a.length ? { n: a.length, avg: avg(a), up: (a.filter((x) => x > 0).length / a.length) * 100 } : { n: 0, avg: null, up: null });
+  const r = { al: f(st.al), bekle: f(st.bekle), sat: f(st.sat), all: f(st.all) };
+  const MIN = 30, GAP = 0.5;
+  // al: iyi = ortalamadan belirgin yüksek; sat: iyi = ortalamadan belirgin düşük (yani çıkmak haklı çıkmış)
+  const al = r.al.n < MIN ? 'az' : r.al.avg > r.all.avg + GAP && r.al.up >= r.all.up ? 'iyi' : r.al.avg < r.all.avg - GAP ? 'ters' : 'fark';
+  const sat = r.sat.n < MIN ? 'az' : r.sat.avg < r.all.avg - GAP ? 'iyi' : r.sat.avg > r.all.avg + GAP ? 'ters' : 'fark';
+  return { r, al, sat };
+}
 // ENGINE END
 
 /* ---------- Arayüz ---------- */
@@ -884,6 +983,9 @@ const S = {
   q: '', filter: 'hepsi', sort: 'mcap', mk: 'hepsi', shown: 40, sel: null,
   ex: null, canon: {}, rq: '', rshown: 30, ropen: null, rfilter: 'hepsi', bootP: null,
   port: store.get('port', []), pcoins: {}, pat: 0, pfail: false, pimport: null, pimp: '', flash: '', ppick: null, psel: null, pdel: false,
+  fx: null, fxAt: 0, pcur: store.get('pcur', 'TRY'), prevSig: store.get('sig', {}),
+  bt: { stock: null, stockAt: 0, coin: null, busy: false, err: false },
+  notifOn: store.get('notif', false), installEv: null, tipHide: store.get('tip', false),
 };
 const CUR_LOCALE = { usd: 'USD', try: 'TRY', eur: 'EUR' };
 function money(v, cur) {
@@ -973,11 +1075,80 @@ function viewChoose() {
 }
 
 /* ---------- Görünümler ---------- */
+function holdRows(kind) { return S.port.filter((h) => h.kind === kind).map((h) => { const it = holdItem(h); return { h, it, c: portCalc(h, it) }; }); }
+const symOf = (r) => String(r.h.sym).toUpperCase();
+/* Günlük özet: portföyün bugünü, en çok oynayanlar, sinyali değişenler, uyarılar, haberler */
+function briefHtml(w) {
+  const rows = holdRows(w.st ? 'stock' : 'coin'), live = rows.filter((r) => r.it);
+  if (!live.length) return '';
+  const groups = portSummary(rows), multi = groups.length > 1;
+  const tot = multi ? portGrand(groups, S.fx, S.pcur) : groups[0];
+  let main = '';
+  if (tot && tot.hasDay) {
+    const prev = tot.value - tot.day;
+    main = `Portföyün bugün <b class="num ${tcls(tot.day)}">${sgn(tot.day, tot.cur)}</b> <span class="num ${tcls(tot.day)}">(${pct(prev > 0 ? (tot.day / prev) * 100 : null)})</span>`;
+  } else if (multi) main = groups.filter((g) => g.hasDay).map((g) => `${g.cur}: <b class="num ${tcls(g.day)}">${sgn(g.day, g.cur)}</b>`).join(' · ');
+  const moves = live.filter((r) => num(r.it.c24) !== null).sort((a, b) => b.it.c24 - a.it.c24);
+  const best = moves[0], worst = moves[moves.length - 1];
+  const chg = sigChanges(S.prevSig, portSignals(rows));
+  const warns = rows.filter((r) => portNote(r)).length;
+  const news = portNews(rows), neg = news.filter((n) => n.score < -0.3).length;
+  const li = [];
+  if (best && worst && best !== worst) li.push(`En çok yükselen <b>${esc(symOf(best))}</b> <span class="num t-up">${pct(best.it.c24)}</span>, en çok düşen <b>${esc(symOf(worst))}</b> <span class="num ${tcls(worst.it.c24)}">${pct(worst.it.c24)}</span>.`);
+  else if (best) li.push(`<b>${esc(symOf(best))}</b> bugün <span class="num ${tcls(best.it.c24)}">${pct(best.it.c24)}</span>.`);
+  if (chg.length) li.push('Son açışından beri sinyali değişenler: ' + chg.map((c) => { const r = rows.find((x) => x.h.id === c.id); return `<b>${esc(r ? symOf(r) : c.id)}</b> <span class="${c.worse ? 't-dn' : 't-up'}">${c.from} → ${c.to}</span>`; }).join(', ') + '.');
+  if (warns) li.push(`⚠ ${warns} varlıkta uyarı var.`);
+  if (news.length) li.push(`Elindekilerle ilgili ${news.length} haber var${neg ? `, ${neg} tanesi olumsuz` : ''}.`);
+  if (!main && !li.length) return '';
+  return `<section class="panel span2 brief"><div class="sub">Bugün senin için</div>${main ? `<div class="brief-main">${main}</div>` : ''}
+    ${li.length ? `<ul class="brief-list">${li.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}<button class="btn" data-tab="portfoy">Portföyü aç</button></section>`;
+}
+/* Sinyal karnesi */
+async function runBtCoin() {
+  if (S.bt.busy) return;
+  S.bt.busy = true; S.bt.err = false; render();
+  try {
+    if (S.mode === 'demo') throw new Error('demo');
+    const j = await getJson('/api/history', 60000), st = btNew();
+    let n = 0;
+    for (const sym of Object.keys((j && j.coins) || {})) {
+      const m = S.coins.find((c) => c.id === S.canon[sym]); if (!m) continue;
+      btCoin(j.coins[sym], { id: m.id, symbol: m.symbol, name: m.name, mcap: m.mcap, vol: m.vol, rank: m.rank, ath: m.ath }, st); n++;
+    }
+    if (!n) throw new Error('boş');
+    S.bt.coin = { sum: btSummary(st), n };
+  } catch (e) { S.bt.err = true; }
+  S.bt.busy = false; render();
+}
+function btHtml(w) {
+  let sum, scope, hz;
+  if (w.st) {
+    const withH = S.sitems.filter((it) => it.h && it.h.length > 40);
+    if (withH.length < 3) return '';
+    if (!S.bt.stock || S.bt.stockAt !== S.supdated) { const st = btNew(); for (const it of withH) btStock(it.h, st, 5); S.bt.stock = { sum: btSummary(st), n: withH.length }; S.bt.stockAt = S.supdated; }
+    sum = S.bt.stock.sum; scope = `${S.bt.stock.n} hisse, son yaklaşık 6 ay`; hz = '5 iş günü (1 hafta)';
+  } else if (S.bt.coin) { sum = S.bt.coin.sum; scope = `${S.bt.coin.n} büyük coin, son yaklaşık 3 ay`; hz = '7 gün'; }
+  const head = `<h2>Sinyal karnesi</h2><div class="sub" style="margin-bottom:8px">Geçmişte bu sinyaller verildiğinde ${w.st ? 'bir hafta' : '7 gün'} sonra fiyat ne yapmış? Uygulamanın puanları kendi geçmişine karşı sınanır.</div>`;
+  if (!sum) {
+    return `<section class="panel span2">${head}${S.bt.busy ? '<div class="sub">Geçmiş veriler alınıp hesaplanıyor… (yarım dakika kadar sürebilir)</div>'
+      : `<button class="btn primary" id="btgo">Karneyi hesapla</button>${S.bt.err ? '<p class="rnote warn" style="margin-top:10px">Geçmiş veriye ulaşılamadı ' + (S.mode === 'demo' ? '(örnek veri modunda hesaplanamaz).' : '; biraz sonra tekrar dene.') + '</p>' : ''}`}</section>`;
+  }
+  const r = sum.r, ln = (label, g) => `<div class="bt-r"><span>${label}</span><span class="num">${g.n}</span><span class="num ${g.n && g.avg < 0 ? 't-dn' : g.n ? 't-up' : ''}">${g.n ? fmtP(g.avg) : '—'}</span><span class="num">${g.n ? '%' + Math.round(g.up) : '—'}</span></div>`;
+  const alTxt = { iyi: 'Al sinyalleri ortalama günden daha iyi çıkmış: bu dönemde işe yarıyor gibi.', ters: 'Dikkat: Al sinyali verilen günlerden sonra fiyat ortalamadan daha kötü gitmiş. Bu dönemde Al sinyallerine fazla güvenme.', fark: 'Al sinyalleri ile ortalama gün arasında belirgin fark yok: puan tek başına yön göstermiyor.', az: 'Al sinyali için yeterli gözlem yok (en az 30 gerekir).' }[sum.al];
+  const satTxt = { iyi: 'Sat/Azalt sinyalleri haklı çıkmış: sonrasında fiyat ortalamadan zayıf gitmiş.', ters: 'Dikkat: Sat/Azalt sinyali verilen günlerden sonra fiyat ortalamadan daha iyi gitmiş; satış sinyalleri bu dönemde yanıltmış.', fark: 'Sat/Azalt sinyalleri ile ortalama gün arasında belirgin fark yok.', az: 'Sat/Azalt sinyali için yeterli gözlem yok (en az 30 gerekir).' }[sum.sat];
+  return `<section class="panel span2">${head}
+    <div class="bt"><div class="bt-h"><span>Sinyal</span><span>Gözlem</span><span>${hz} sonra ort.</span><span>Yükselen</span></div>
+      ${ln('Al / Güçlü Al', r.al)}${ln('Bekle', r.bekle)}${ln('Azalt / Sat', r.sat)}${ln('Tüm günler', r.all)}</div>
+    <ul class="brief-list" style="margin-top:10px"><li>${alTxt}</li><li>${satTxt}</li></ul>
+    <p class="rnote" style="margin:8px 0 0">Kapsam: ${scope}. Haber puanı karneye dahil değil (geçmiş haberler saklanmıyor). Gözlemler ardışık günlerden oluştuğu için birbirine benzer; sonuçlar kesinlik göstermez. Geçmiş performans geleceği garanti etmez.</p></section>`;
+}
 function viewPano() {
   const w = W(); if (!w.ready) return notReady(w);
   const i = w.info, items = w.items;
   const pool = w.st ? items.filter((c) => c.a.st) : items.filter((c) => c.a.signal !== 'STABİL' && (c.rank || 9999) <= 200);
-  const best = pool.filter((c) => c.a.score >= 20 && c.a.risk !== 'Yüksek' && !c.a.hot).sort((a, b) => b.a.score - a.a.score).slice(0, 8);
+  const cands = w.st ? pool : pool.filter((c) => (c.rank || 9999) <= 100); // coinde ana liste yalnız ilk 100
+  const best = cands.filter((c) => c.a.score >= 20 && c.a.risk !== 'Yüksek' && !c.a.hot).sort((a, b) => b.a.score - a.a.score).slice(0, 8);
+  const risky = w.st ? [] : items.filter((c) => c.a.signal !== 'STABİL' && (c.rank || 9999) > 100 && c.a.score >= 20 && !c.a.hot).sort((a, b) => b.a.score - a.a.score).slice(0, 5);
   const weak = pool.filter((c) => c.a.score <= -10).sort((a, b) => a.a.score - b.a.score).slice(0, 4);
   const hotOnes = pool.filter((c) => c.a.hot && !weak.includes(c)).sort((a, b) => (b.c24 ?? 0) - (a.c24 ?? 0)).slice(0, 3);
   const worst = [...weak, ...hotOnes];
@@ -997,17 +1168,19 @@ function viewPano() {
   const movers = noPoints ? items.filter((c) => num(c.c24) !== null).sort((a, b) => Math.abs(b.c24) - Math.abs(a.c24)).slice(0, 8) : [];
   const middle = noPoints
     ? `<section class="panel span2"><h2>Günün hareketlileri</h2><div class="rows">${movers.length ? movers.map(row).join('') : '<div class="empty">Fiyat verisi alınamadı.</div>'}</div></section>`
-    : `<section class="panel"><h2>Öne çıkan alım adayları</h2><div class="sub" style="margin-bottom:6px">Puanı yüksek, aşırı ısınmamış, riski yüksek olmayanlar</div>
+    : `<section class="panel"><h2>Öne çıkan alım adayları</h2><div class="sub" style="margin-bottom:6px">${w.st ? 'Puanı yüksek, aşırı ısınmamış, riski yüksek olmayanlar' : 'İlk 100 coin içinden: puanı yüksek, aşırı ısınmamış, riski yüksek olmayanlar'}</div>
       <div class="rows">${best.length ? best.map(row).join('') : '<div class="empty">Şu an güçlü bir aday yok. Beklemek de bir karardır.</div>'}</div></section>
     <section class="panel"><h2>Uzak durulacaklar</h2><div class="sub" style="margin-bottom:6px">Zayıf trend ya da aşırı ısınmış ${noun === 'coin' ? 'coinler' : 'hisseler'}</div>
       <div class="rows">${worst.length ? worst.map(row).join('') : '<div class="empty">Belirgin bir uyarı yok.</div>'}</div></section>`;
-  return `${stockNotes()}<div class="grid2">${mood}${middle}
+  const riskyP = risky.length ? `<section class="panel span2"><h2>Riskli ama hareketli</h2><div class="sub" style="margin-bottom:6px">İlk 100'ün dışındaki küçük coinler. Puanı iyi görünür ama fiyatı kolay sertçe düşer, alıp satarken fiyat kayabilir. Yalnızca kaybetmeyi göze alabileceğin küçük tutarla düşün.</div>
+      <div class="rows">${risky.map(row).join('')}</div></section>` : '';
+  return `${stockNotes()}<div class="grid2">${briefHtml(w)}${mood}${middle}${riskyP}${noPoints ? '' : btHtml(w)}
   <section class="panel span2"><h2>Son haberler</h2>${newsList(w.news.slice(0, 6))}</section></div>`;
 }
 function newsList(list) {
   if (!list.length) return '<div class="empty">Haber alınamadı.</div>';
   return `<div class="news">${list.map((n) => {
-    const d = `<span class="dot ${n.score > 0 ? 'p' : n.score < 0 ? 'n' : ''}"></span><span><b>${esc(n.title)}</b><span>${esc(n.source)} · ${ago(n.date)}</span></span>`;
+    const d = `<span class="dot ${n.score > 0 ? 'p' : n.score < 0 ? 'n' : ''}"></span><span><b>${esc(n.title)}</b><span>${n.tags && n.tags.length ? esc(n.tags.join(', ')) + ' · ' : ''}${esc(n.source)} · ${ago(n.date)}</span></span>`;
     return n.link ? `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer">${d}</a>` : `<div class="n">${d}</div>`;
   }).join('')}</div>`;
 }
@@ -1134,7 +1307,7 @@ function renderImportBar() {
 }
 function render() {
   const k = S.kind, choose = !k, w = W();
-  renderImportBar();
+  renderImportBar(); renderTip();
   document.documentElement.dataset.kind = k === 'stock' ? 'stock' : 'coin';
   $('#kinds').hidden = choose; $('.tabs').hidden = choose;
   $('#status').hidden = choose; $('#refresh').hidden = choose; $('#cur').hidden = k !== 'coin';
@@ -1214,22 +1387,51 @@ function prow(r) {
   return `<button class="row prow" data-pedit="${esc(h.u)}"><span class="who">${avatar(it)}<span class="nm"><b>${esc(h.name)}</b><span>${sub}</span></span></span>
     <span class="px"><span class="num">${money(c.value, c.cur)}</span>${pl}</span><span class="sp">${sparkSvg(it.spark)}</span><span class="sig ${it.a.cls}">${it.a.signal}</span></button>`;
 }
+const FXSYM = { TRY: '₺', USD: '$', EUR: '€' };
+function pfChart(rows, groups, grand, kind) {
+  const target = groups.length > 1 ? (grand ? S.pcur : null) : groups[0].cur; if (!target) return '';
+  const s = portSeries(rows, S.fx, target); if (!s || s.values.length < 8) return '';
+  const v = s.values, hi = Math.max(...v), lo = Math.min(...v), last = v[v.length - 1], endY = 100 - ((last - lo) / (hi - lo || 1)) * 100;
+  const ch = v[0] > 0 ? (last / v[0] - 1) * 100 : null;
+  return `<section class="panel" style="margin-top:14px"><h2>Değer geçmişi</h2><div class="sub" style="margin-bottom:4px">${kind === 'coin' ? 'Son 7 gün' : 'Son 3 ay'}: <b class="num ${tcls(ch ?? 0)}">${pct(ch)}</b> · bugünkü miktarların sabit kabul edilerek hesaplandı${s.used < s.total ? ` (${s.used}/${s.total} varlık hesaba katıldı)` : ''}</div>
+    <div class="chart">${sparkSvg(v, 100, 100)}<span class="endp" style="left:100%;top:${endY.toFixed(1)}%"></span></div><div class="hilo num"><span>En düşük ${money(lo, target)}</span><span>En yüksek ${money(hi, target)}</span></div></section>`;
+}
+function notifPanel() {
+  const sup = typeof Notification !== 'undefined', perm = sup ? Notification.permission : 'yok';
+  const on = sup && perm === 'granted' && S.notifOn;
+  const msg = !sup ? 'Bu tarayıcı bildirim desteklemiyor.' : perm === 'denied' ? 'Bildirim izni kapalı. Tarayıcının site ayarlarından izin verirsen açabilirsin.' : on ? 'Açık. Elindeki bir varlığın sinyali Azalt/Sat\'a dönerse ya da bir günde %8\'den fazla oynarsa haber veririm.' : 'Kapalı. Açarsan elindeki bir varlığın sinyali Azalt/Sat\'a dönünce ya da bir günde %8\'den fazla oynayınca bildirim gönderirim.';
+  return `<section class="panel" style="margin-top:14px"><h2>Bildirimler</h2><p class="sub" style="margin:0 0 8px">${msg}</p>
+    ${sup && perm !== 'denied' ? `<button class="btn ${on ? '' : 'primary'}" id="pnotif">${on ? 'Bildirimleri kapat' : 'Bildirimleri aç'}</button>` : ''}
+    <p class="rnote" style="margin:10px 0 0">Bildirimler uygulama açıkken ya da telefonda arka planda çalışmaya devam ederken gelir. Telefon uygulamayı tamamen kapattıysa gelmez, çünkü bunun için ayrı bir sunucu servisi gerekir. iPhone'da bildirim için uygulamayı Ana Ekrana eklemen gerekir.</p></section>`;
+}
 function viewPortfoy() {
   const w = W(); if (!w.ready) return notReady(w);
-  const kind = w.st ? 'stock' : 'coin';
-  const rows = S.port.filter((h) => h.kind === kind).map((h) => { const it = holdItem(h); return { h, it, c: portCalc(h, it) }; });
+  const kind = w.st ? 'stock' : 'coin', rows = holdRows(kind);
   const head = `<div class="pf-head"><h2>Portföyüm</h2><button class="btn primary" id="padd">+ Ekle</button></div>`;
   const fail = S.pfail && !w.st ? '<p class="rnote warn">Güncel coin fiyatları alınamadı; yeniden denenecek.</p>' : '';
   let body;
   if (!rows.length) {
     body = `<section class="panel"><div class="empty">${w.st ? 'Henüz hisse eklemedin.' : 'Henüz coin eklemedin.'}<br>"Ekle" düğmesiyle elindeki miktarı girersen değerini, kâr/zararını ve sinyalini burada görürsün.${S.mode === 'demo' ? '<br><button class="btn retry" id="pdemo">Örnek portföyle dene</button>' : ''}</div></section>`;
   } else {
-    const groups = portSummary(rows), warns = rows.filter((r) => portNote(r)).length;
-    const status = warns ? `⚠ ${warns} varlıkta uyarı var (aşağıda işaretli).` : rows.some((r) => r.it) ? '✓ Elindeki varlıkların hiçbiri Sat/Azalt sinyali vermiyor.' : '';
+    const groups = portSummary(rows), warns = rows.filter((r) => portNote(r)).length, multi = groups.length > 1;
+    const grand = multi ? portGrand(groups, S.fx, S.pcur) : null;
+    const news = portNews(rows), neg = news.filter((n) => n.score < -0.3).length;
+    const status = [warns ? `⚠ ${warns} varlıkta uyarı var (aşağıda işaretli).` : rows.some((r) => r.it) ? '✓ Elindeki varlıkların hiçbiri Sat/Azalt sinyali vermiyor.' : '', neg ? `${neg} olumsuz haber var.` : ''].filter(Boolean).join(' ');
     rows.sort((a, b) => (b.c.value ?? -1) - (a.c.value ?? -1));
-    body = `<section class="panel">${groups.map((g) => groupHtml(g, groups.length > 1)).join('')}<div class="sub" style="margin-top:12px">${status}</div></section>
+    let top = '';
+    if (multi && grand) {
+      top = `<div class="pfg"><div class="sub">Hepsi birlikte (${S.pcur})</div><div class="pf-total">${money(grand.value, grand.cur)}</div>
+        ${grand.hasDay ? `<div class="pf-line"><span>Bugün <b class="num ${tcls(grand.day)}">${sgn(grand.day, grand.cur)}</b></span></div>` : ''}
+        <div class="chips" style="margin:10px 0 0">${['TRY', 'USD', 'EUR'].map((c) => `<button class="chip" data-pcur="${c}" aria-pressed="${S.pcur === c}">${FXSYM[c]}</button>`).join('')}</div>
+        <div class="sub" style="margin-top:2px">Kur: 1 $ = ${money(S.fx.USD, 'TRY')} · 1 € = ${money(S.fx.EUR, 'TRY')} (yaklaşık, kur çevirisiyle)</div></div>`;
+    } else if (multi) top = '<p class="rnote warn" style="margin:0 0 12px">Kur alınamadığı için farklı para birimleri tek toplamda birleştirilemedi.</p>';
+    let eq = '';
+    if (!multi && S.fx && groups[0]) { const g = groups[0], o = ['TRY', 'USD', 'EUR'].filter((c) => c !== g.cur).map((c) => money(fxConv(g.value, g.cur, c, S.fx), c)); eq = `<div class="sub" style="margin-top:6px">≈ ${o.join(' · ')}</div>`; }
+    body = `<section class="panel">${top}${groups.map((g) => groupHtml(g, multi)).join('')}${eq}<div class="sub" style="margin-top:12px">${status}</div></section>
+      ${pfChart(rows, groups, grand, kind)}
       <section class="panel" style="margin-top:14px"><div class="rows">${rows.map((r) => prow(r) + portNote(r)).join('')}</div>
-      <p class="rnote" style="margin:10px 0 0">Bir satıra basarak miktarı ve maliyeti düzeltebilir ya da silebilirsin. ${w.st ? 'Fiyatlar Midas\'tan (gecikmeli olabilir) ya da son kapanıştan gelir.' : 'Coin değerleri TL cinsindendir.'}</p></section>`;
+      <p class="rnote" style="margin:10px 0 0">Bir satıra basarak miktarı ve maliyeti düzeltebilir ya da silebilirsin. ${w.st ? 'Fiyatlar Midas\'tan (gecikmeli olabilir) ya da son kapanıştan gelir.' : 'Coin değerleri TL cinsindendir.'}</p></section>
+      ${news.length ? `<section class="panel" style="margin-top:14px"><h2>Elindekilerle ilgili haberler</h2>${newsList(news.slice(0, 8))}</section>` : ''}`;
   }
   const backup = `<section class="panel pbackup" style="margin-top:14px"><h2>Yedekle ve başka cihaza aktar</h2>
     <p class="sub" style="margin:0">Portföyün yalnızca bu cihazda saklanır, hiçbir sunucuya gönderilmez. Başka bir telefona ya da bilgisayara taşımak için kodu kopyala, orada aşağıdaki kutuya yapıştır.</p>
@@ -1237,7 +1439,7 @@ function viewPortfoy() {
     <label>Başka cihazdan gelen kodu yapıştır<textarea id="pimp" rows="3" placeholder="kp1. ile başlayan kod">${esc(S.pimp)}</textarea></label>
     <div class="acts"><button class="btn" id="pdoimp">İçe aktar</button></div><div class="err" id="pimperr"></div>
     <span class="hint">İçe aktarınca bu cihazdaki portföy kodla değiştirilir.</span></div></section>`;
-  return head + fail + body + backup;
+  return head + fail + body + notifPanel() + backup;
 }
 function showSheet(html, label) {
   $('#sheet').setAttribute('aria-label', label); $('#sheet').innerHTML = html; $('#scrim').hidden = false; S.sel = null;
@@ -1294,6 +1496,54 @@ function importPort(list) {
 }
 const DEMO_PORT = [['c', 'bitcoin', 'btc', 'Bitcoin', 0.02, 50000, 'TRY', 'Binance', 0], ['c', 'ethereum', 'eth', 'Ethereum', 0.5, 2000, 'TRY', 'Binance', 0], ['c', 'ripple', 'xrp', 'XRP', 300, null, 'TRY', 'Midas', 0],
   ['s', 'bist:THYAO', 'THYAO', 'Türk Hava Yolları', 2, 250, 'TRY', 'Midas', 0], ['s', 'bist:ASELS', 'ASELS', 'Aselsan', 10, 100, 'TRY', 'Midas', 0], ['s', 'us:AAPL', 'AAPL', 'Apple', 3, 170, 'USD', 'Midas', 0]];
+
+/* ---------- Kur, bildirim, yükleme ipucu ---------- */
+async function loadFx() {
+  if (S.mode === 'demo') { S.fx = { TRY: 1, USD: 41, EUR: 47.5 }; return; }
+  if (S.fx && Date.now() - S.fxAt < 600000) return;
+  try { const j = await getJson('/api/fx', 10000); if (j && j.USD > 0 && j.EUR > 0) { S.fx = { TRY: 1, USD: j.USD, EUR: j.EUR }; S.fxAt = Date.now(); } } catch (e) { /* kur yoksa tek toplam gösterilmez */ }
+}
+async function notify(title, body, tag) {
+  try {
+    const reg = navigator.serviceWorker && (await navigator.serviceWorker.getRegistration());
+    if (reg && reg.showNotification) { await reg.showNotification(title, { body, tag, icon: '/icon-192.png' }); return; }
+    new Notification(title, { body, tag });
+  } catch (e) { /* bildirim gösterilemedi, uygulama etkilenmez */ }
+}
+// Portföydeki varlıkların sinyali Azalt/Sat'a döndüyse ya da bir günde sert oynadıysa (günde bir kez) bildirir; son sinyalleri kaydeder.
+function checkAlerts() {
+  try {
+    const rows = [...holdRows('coin'), ...holdRows('stock')].filter((r) => r.it);
+    if (!rows.length) return;
+    const cur = portSignals(rows), stored = store.get('sig', {}), day = new Date().toISOString().slice(0, 10);
+    let done = store.get('notified', {}); done = Object.fromEntries(Object.entries(done).filter(([, d]) => d === day));
+    if (S.notifOn && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      const once = (key, f) => { if (!done[key]) { done[key] = day; f(); } };
+      for (const ch of sigChanges(stored, cur)) {
+        const r = rows.find((x) => x.h.id === ch.id);
+        if (ch.worse && SIG_RANK[ch.to] <= -1 && r) once('s:' + ch.id + ch.to, () => notify(`${r.h.name}: sinyal ${ch.to}`, `${ch.from} → ${ch.to}. ${((r.it.a.reasons.find((x) => x.pos === false) || {}).t) || 'Trend zayıfladı.'}`, 'sig-' + ch.id));
+      }
+      for (const r of rows) if (num(r.it.c24) !== null && Math.abs(r.it.c24) >= 8) once('m:' + r.h.id, () => notify(`${r.h.name} bugün ${pct(r.it.c24)}`, 'Bir günde sert hareket etti. Detay için uygulamayı aç.', 'mv-' + r.h.id));
+    }
+    store.set('notified', done); store.set('sig', { ...stored, ...cur });
+  } catch (e) { /* uyarı kontrolü uygulamayı durdurmaz */ }
+}
+async function toggleNotif() {
+  if (typeof Notification === 'undefined') return;
+  if (S.notifOn) { S.notifOn = false; store.set('notif', false); render(); return; }
+  let p = Notification.permission;
+  if (p === 'default') { try { p = await Notification.requestPermission(); } catch (e) { /* izin sorulamadı */ } }
+  if (p === 'granted') { S.notifOn = true; store.set('notif', true); notify('Bildirimler açık', 'Elindeki bir varlığın sinyali kötüleşirse ya da bir günde sert oynarsa burada haber veririm.', 'ok'); }
+  render();
+}
+function isStandalone() { try { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } }
+function renderTip() {
+  const ua = navigator.userAgent || '', ios = /iPhone|iPad|iPod/.test(ua), android = /Android/.test(ua), el = $('#tip');
+  if (S.tipHide || isStandalone() || !(ios || android)) { el.innerHTML = ''; return; }
+  const how = S.installEv ? 'Aşağıdaki düğmeyle uygulamayı telefonuna yükleyebilirsin.' : ios ? 'Safari\'de alttaki Paylaş düğmesine bas, sonra "Ana Ekrana Ekle"yi seç.' : 'Tarayıcı menüsünden (⋮) "Uygulamayı yükle" ya da "Ana ekrana ekle"yi seç.';
+  el.innerHTML = `<div class="banner"><b>Uygulama gibi kullan.</b> ${how}<div class="imp-actions">${S.installEv ? '<button class="btn primary" id="tipinst">Yükle</button>' : ''}<button class="btn" id="tipno">Tamam, gösterme</button></div></div>`;
+}
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); S.installEv = e; renderTip(); });
 
 /* ---------- Detay paneli ---------- */
 function openSheet(id) {
@@ -1356,7 +1606,8 @@ async function load(manual) {
   render();
   if (S.sel) openSheet(S.sel);
   loadEx().then(() => { render(); if (S.sel) openSheet(S.sel); });
-  if (S.port.some((h) => h.kind === 'coin')) loadPortCoins().then(() => { if ($('#scrim').hidden) render(); });
+  loadFx().then(() => { if ($('#scrim').hidden) render(); });
+  if (S.port.some((h) => h.kind === 'coin')) loadPortCoins().then(() => { checkAlerts(); if ($('#scrim').hidden) render(); });
 }
 async function loadStockWorld(manual) {
   if (S.sbusy) return;
@@ -1375,6 +1626,7 @@ async function loadStockWorld(manual) {
     S.sraw = raw; S.sitems = world.items; S.sinfo = world.info; S.supdated = raw.updated || Date.now(); S.sstate = 'ready'; S.sloadedAt = Date.now();
   } catch (e) { if (!S.sitems.length) S.sstate = 'error'; }
   S.sbusy = false;
+  checkAlerts();
   render();
   if (S.sel) openSheet(S.sel);
 }
@@ -1407,6 +1659,11 @@ document.addEventListener('click', (e) => {
   else if (t.dataset.rf) { S.rfilter = t.dataset.rf; S.rshown = 30; S.ropen = null; render(); }
   else if (t.id === 'close' || (t.id === 'scrim' && e.target === t)) closeSheet();
   else if (t.id === 'refresh') { if (S.kind === 'stock') loadStockWorld(true); else load(true); }
+  else if (t.dataset.pcur) { S.pcur = t.dataset.pcur; store.set('pcur', S.pcur); render(); }
+  else if (t.id === 'btgo') runBtCoin();
+  else if (t.id === 'pnotif') toggleNotif();
+  else if (t.id === 'tipno') { S.tipHide = true; store.set('tip', true); renderTip(); }
+  else if (t.id === 'tipinst') { const ev = S.installEv; S.installEv = null; if (ev) { try { ev.prompt(); } catch (e) {} } renderTip(); }
   else if (t.id === 'padd') openPortAdd();
   else if (t.id === 'psave' || t.id === 'pupd') {
     const f = readForm(); if (!f) return;

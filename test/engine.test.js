@@ -117,5 +117,38 @@ const E4 = new Function(code + '; return { parseNumTr, portEncode, portDecode, p
   const w = E4.buildStockWorld({ meta: { us: [], bist: [], eu: [{ s: 'DTE', n: 'Deutsche Telekom', k: 'Telekom', d: 'x', dom: 'telekom.com', al: [] }] }, us: {}, bist: {}, eu: { DTE: { p: 25.17, c: 1 } }, hist: {}, ok: {} }, []);
   ok(w.items.length === 1 && w.items[0].id === 'eu:DTE' && w.items[0].cur === 'EUR' && w.items[0].price === 25.17, 'Avrupa hissesi dünyaya giriyor: kimlik eu:DTE, para birimi EUR');
 }
+// Kur, grafik, haber, sinyal değişimi, karne
+const E5 = new Function(code + '; return { fxConv, portGrand, portSeries, portNews, portSignals, sigChanges, btNew, btStock, btCoin, btSummary, btBucket, makeDemoStocks, rng };')();
+{
+  const fx = { USD: 40, EUR: 50 };
+  ok(E5.fxConv(100, 'USD', 'TRY', fx) === 4000 && E5.fxConv(100, 'TRY', 'EUR', fx) === 2 && E5.fxConv(10, 'EUR', 'USD', fx) === 12.5 && E5.fxConv(5, 'TRY', 'TRY', null) === 5, 'kur çevirisi doğru');
+  ok(E5.fxConv(1, 'USD', 'TRY', null) === null && E5.fxConv(1, 'GBP', 'TRY', fx) === null, 'kur yoksa null (uydurma yok)');
+  const g = E5.portGrand([{ cur: 'TRY', value: 1000, day: 10, hasDay: true }, { cur: 'EUR', value: 10, day: -1, hasDay: true }], fx, 'TRY');
+  ok(g.value === 1500 && g.day === -40 && g.hasDay, 'tek toplam: 1000 ₺ + 10 € = 1500 ₺');
+  ok(E5.portGrand([{ cur: 'EUR', value: 10, day: 0, hasDay: false }], { USD: 40 }, 'TRY') === null, 'kuru olmayan para birimi varsa tek toplam verilmiyor');
+  const up = Array.from({ length: 20 }, (_, i) => 10 + i), dn = Array.from({ length: 30 }, (_, i) => 100 - i);
+  const rows = [{ h: { qty: 2 }, it: { spark: up }, c: { cur: 'TRY' } }, { h: { qty: 1 }, it: { spark: dn }, c: { cur: 'USD' } }, { h: { qty: 5 }, it: null, c: { cur: 'TRY' } }];
+  const ps = E5.portSeries(rows, fx, 'TRY');
+  ok(ps.values.length === 20 && ps.used === 2 && ps.total === 3 && ps.values[19] === 2 * 29 + 71 * 40 && ps.values[0] === 2 * 10 + 90 * 40, 'portföy serisi: kısa olana hizalanıyor, fiyatı olmayan atlanıyor');
+  const hit = (t, l, d, s) => ({ title: t, link: l, date: d, score: s, source: 'x' });
+  const nr = E5.portNews([{ h: { sym: 'btc' }, it: { a: { hits: [hit('A', 'l1', 5, 1), hit('B', 'l2', 9, -1)] } } }, { h: { sym: 'eth' }, it: { a: { hits: [hit('A', 'l1', 5, 1)] } } }, { h: { sym: 'x' }, it: null }]);
+  ok(nr.length === 2 && nr[0].title === 'B' && nr[1].tags.join() === 'BTC,ETH', 'portföy haberleri: yinelenen birleşti, yeniden eskiye sıralı');
+  const sg = E5.sigChanges({ a: 'AL', b: 'BEKLE', c: 'SAT' }, { a: 'AZALT', b: 'BEKLE', c: 'AL', d: 'SAT' });
+  ok(sg.length === 2 && sg.find((x) => x.id === 'a').worse === true && sg.find((x) => x.id === 'c').worse === false, 'sinyal değişimi: kötüleşen ve iyileşen ayrılıyor, yeni varlık sayılmıyor');
+  ok(E5.portSignals([{ h: { id: 'q' }, it: { a: { signal: 'VERİ YOK' } } }, { h: { id: 'w' }, it: { a: { signal: 'AL' } } }]).q === undefined, 'verisiz sinyal kaydedilmiyor');
+  // karne: yükselişi izleyen "al" sinyallerini içeren yapay seri
+  const r = E5.rng(5); let v = 100; const cl = [];
+  for (let i = 0; i < 200; i++) { v *= 1 + (r() - 0.48) * 0.03; cl.push(v); }
+  const st = E5.btNew(); E5.btStock(cl, st, 5);
+  ok(st.all.length === st.al.length + st.bekle.length + st.sat.length && st.all.length > 100 && st.all.every(Number.isFinite), 'karne (hisse): her gün tek gruba giriyor, değerler sayı (' + st.all.length + ' gözlem)');
+  const sp = Array.from({ length: 1000 }, (_, i) => 100 * Math.exp(Math.sin(i / 90) * 0.2 + i * 0.0002));
+  const cs = E5.btNew(); E5.btCoin(sp, { id: 'x', symbol: 'xyz', name: 'X', mcap: 1e10, vol: 1e9, rank: 20, ath: -20 }, cs);
+  ok(cs.all.length > 20 && cs.all.length === cs.al.length + cs.bekle.length + cs.sat.length && cs.all.every(Number.isFinite), 'karne (coin): ' + cs.all.length + ' gözlem, hepsi sayı');
+  const fake = { al: Array(40).fill(3), bekle: Array(40).fill(0), sat: Array(40).fill(-3), all: Array(120).fill(0) };
+  const sm = E5.btSummary(fake);
+  ok(sm.al === 'iyi' && sm.sat === 'iyi' && sm.r.al.up === 100, 'karne yorumu: al ortalamadan yüksek, sat düşükse "iyi"');
+  const bad = E5.btSummary({ al: Array(40).fill(-3), bekle: [], sat: Array(10).fill(3), all: Array(50).fill(0) });
+  ok(bad.al === 'ters' && bad.sat === 'az', 'karne yorumu: ters çalışan al "ters", az örnek "az"');
+}
 console.log(fail ? `\n${fail} test başarısız` : '\nTüm testler geçti (rehber dahil)');
 process.exit(fail ? 1 : 0);

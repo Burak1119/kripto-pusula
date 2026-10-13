@@ -48,5 +48,30 @@ const btc = d.coins[0];
 const nc = E.newsContext([{ title: 'Bitcoin ETF inflows surge', link: 'x', source: 's', date: 1 }, { title: 'Bank of Somewhere opens', link: 'y', source: 's', date: 1 }], [btc]);
 ok((nc.byCoin.bitcoin || []).length === 1, 'haber doğru coine eşleşiyor');
 
-console.log(fail ? `\n${fail} test başarısız` : '\nTüm testler geçti');
+
+// ---- Rehber: uzun açıklamalar ve hisse analizi ----
+const E2 = new Function(code + '; return { analyze, analyzeAll, makeDemo, narrateCoin, analyzeStock, narrateStock, makeDemoStocks, stockStats, COIN_INFO };')();
+{
+  const d2 = E2.makeDemo(); E2.analyzeAll(d2.coins, d2.news);
+  const withInfo = d2.coins.filter((c) => E2.COIN_INFO[c.id]).length;
+  ok(withInfo >= 30, 'demo coinlerinin ' + withInfo + ' tanesinde elle yazılmış tanıtım var');
+  let bad = 0;
+  for (const c of d2.coins) { const n = E2.narrateCoin(c, (v) => v.toFixed(2)); const txt = JSON.stringify(n); if (/undefined|NaN|\[object/.test(txt) || n.sec.length === 0 || n.risks.length < 2) { bad++; console.error('  sorunlu:', c.id, (txt.match(/.{20}(undefined|NaN|\[object).{20}/) || [''])[0]); } }
+  ok(bad === 0, 'tüm coinlerin uzun açıklamaları eksiksiz ("undefined"/NaN yok)');
+  const ds = E2.makeDemoStocks();
+  let sbad = 0;
+  for (const k of ['us', 'bist']) for (const s of ds.meta[k]) {
+    const a = E2.analyzeStock(ds.hist[k][s.s], ds[k][s.s].c);
+    const n = E2.narrateStock(s, a, (v) => v.toFixed(2));
+    if (/undefined|NaN|\[object/.test(JSON.stringify(n)) || !a.signal) sbad++;
+  }
+  ok(sbad === 0, 'hisse analizi ve açıklamaları eksiksiz');
+  const none = E2.analyzeStock(null, 1.2);
+  ok(none.signal === 'VERİ YOK', 'geçmiş verisi olmayan hisse "VERİ YOK" alıyor, çökmüyor');
+  ok(E2.narrateStock({ n: 'Test', s: 'X' }, none).sec.length === 1, 'verisiz hisse için dürüst açıklama');
+  const spike = Array.from({ length: 80 }, (_, i) => 100 + i * 0.1); spike[79] = 125;
+  const as = E2.analyzeStock(spike, 25);
+  ok(as.hot && as.signal !== 'AL' && as.signal !== 'GÜÇLÜ AL', 'bir günde %25 sıçrayan hisse Al almıyor (' + as.signal + ')');
+}
+console.log(fail ? `\n${fail} test başarısız` : '\nTüm testler geçti (rehber dahil)');
 process.exit(fail ? 1 : 0);

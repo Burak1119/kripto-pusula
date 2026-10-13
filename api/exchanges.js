@@ -20,7 +20,7 @@ function parseMidas(html) {
     if (!sym || out[sym]) continue;
     let next = hits.findIndex((x, j) => j > i && x.slug !== h.slug);
     const stop = next === -1 ? h.end + 1500 : hits[next].start;
-    const seg = strip(html.slice(h.end, Math.min(stop, h.end + 1500)));
+    const seg = strip(h.text + ' ' + html.slice(h.end, Math.min(stop, h.end + 1500)));
     const pm = seg.match(/\$\s?([\d.]+(?:,\d+)?)/);
     const cm = seg.replace(/−/g, '-').match(/([-+]?\s?\d+(?:,\d+)?)\s?%/);
     const p = pm ? trNum(pm[1]) : null;

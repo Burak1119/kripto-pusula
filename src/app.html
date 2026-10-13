@@ -1,7 +1,7 @@
 <title>Kripto Pusula</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <style>
 /* Düzen: tek sütun mobil, geniş ekranda iki sütunlu pano. Alt sekme çubuğu mobilde sabit, masaüstünde üstte. */
 :root {
@@ -23,6 +23,7 @@
   --warn-bg: #f4e6c8;
   --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
   --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-prose: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
@@ -127,6 +128,29 @@ a.row { text-decoration: none; color: inherit; }
 .xl:hover { border-color: var(--accent); }
 .xl small { color: var(--muted); font-weight: 400; }
 .xstat { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+
+/* rehber */
+.rcard { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); margin-bottom: 10px; overflow: hidden; }
+.rcard.open { border-color: var(--accent); }
+.rhead { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 0; background: none; text-align: left; }
+.rhead:hover { background: color-mix(in srgb, var(--surface2) 55%, transparent); }
+.rr { display: grid; justify-items: end; gap: 5px; }
+.rr .num { font-size: 14px; }
+.chev { width: 20px; height: 20px; color: var(--muted); transition: transform .15s; }
+.rcard.open .chev { transform: rotate(180deg); }
+.rbody { padding: 6px 16px 20px; border-top: 1px solid var(--line); }
+.prose { font-family: var(--font-prose); font-size: 16.5px; line-height: 1.7; }
+.prose > * { max-width: 68ch; }
+.prose h4 { font-family: var(--font-display); font-size: 16px; font-weight: 800; letter-spacing: -.005em; margin: 22px 0 6px; }
+.prose p { margin: 0 0 10px; }
+.prose ul { padding-left: 20px; margin: 0 0 10px; }
+.prose li { margin-bottom: 6px; }
+.prose ul.why { padding: 0; margin: 0 0 10px; }
+.prose .why li { font-size: inherit; margin: 0; }
+.prose .xl { font-family: var(--font-body); font-size: 14px; }
+.prose .chart { margin: 14px 0 4px; }
+.rnote { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.retry { margin-top: 8px; }
 svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 .spark .line { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 .spark .area { stroke: none; opacity: .14; }
@@ -209,7 +233,7 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
     <button role="tab" data-tab="pano" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5Z"/></svg>Pano</button>
     <button role="tab" data-tab="piyasa" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Piyasa</button>
     <button role="tab" data-tab="haber" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3Z"/><path d="M9 9h6M9 13h6"/></svg>Haberler</button>
-    <button role="tab" data-tab="borsa" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h13l-3-3M17 17H4l3 3"/></svg>Borsalar</button>
+    <button role="tab" data-tab="rehber" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5M9 8h6M9 12h6"/></svg>Rehber</button>
   </nav>
   <main id="view"><div class="loading">Piyasa taranıyor…</div></main>
   <p class="foot">Kripto Pusula bir karar destek aracıdır. Puanlar geçmiş fiyat hareketi ve haber başlıklarındaki kelimelerden hesaplanır, geleceği tahmin etmez. Yatırım tavsiyesi değildir. Kaybetmeyi göze alabileceğiniz tutarla işlem yapın.</p>
@@ -415,6 +439,204 @@ function makeDemoEx(coins) {
   });
   return { updated: Date.now(), binance, midas, ok: { binance: true, midas: true } };
 }
+/* ---- Rehber: tanıtımlar ve uzun açıklamalar ---- */
+const COIN_INFO = {
+  'bitcoin': 'İlk ve en büyük kripto para. 2009\'da Satoshi Nakamoto takma adıyla yayımlanan bir belgeyle ortaya çıktı. Toplam arzı 21 milyonla sınırlıdır; bu kıt arz yapısı yüzünden birçok kişi onu "dijital altın" olarak görür. Güvenliği madencilik (proof-of-work) ile sağlanır.',
+  'ethereum': 'Akıllı sözleşmeleri çalıştıran en büyük blokzincir. Merkeziyetsiz finans (DeFi), NFT ve birçok uygulama bu ağ üzerinde çalışır. İşlem ücretleri ETH ile ödenir, ağı güvende tutan doğrulayıcılar da ETH\'i stake eder.',
+  'tether': 'Değerinin 1 ABD dolarına eşit kalması hedeflenen stabil coin (USDT). Borsalarda alım satımda "dolar yerine" en çok kullanılan tokendir. Fiyatı neredeyse hiç oynamaz; değeri, ihraç eden şirketin rezervlerine duyulan güvene dayanır.',
+  'ripple': 'Sınır ötesi para transferlerini hızlı ve ucuz yapmak için tasarlanan XRP Ledger\'ın coini. Ripple şirketiyle yakından anılır; düzenleyici davalar ve kurumsal haberler fiyatını sık etkiler.',
+  'binancecoin': 'Binance borsasının ve BNB Chain ağının coini. Ağ işlem ücretlerinde ve Binance\'in bazı hizmetlerinde kullanılır.',
+  'solana': 'Hızlı ve düşük ücretli işlem sunmayı hedefleyen blokzincir. Birçok DeFi, NFT ve meme coin projesi Solana üzerinde çalışır.',
+  'usd-coin': 'Dolara sabitlenmiş stabil coin (USDC). Circle şirketi ihraç eder; rezervlerini düzenli olarak açıklamasıyla bilinir.',
+  'dogecoin': '2013\'te şaka olarak çıkan, köpek maskotlu meme coin. Fiyatı büyük ölçüde sosyal medya ve ünlü kişilerin açıklamalarıyla hareket eder. Arzı sınırlı değildir.',
+  'tron': 'Eğlence ve içerik uygulamaları için kurulan, bugün özellikle USDT transferlerinde yoğun kullanılan blokzincir.',
+  'cardano': 'Akademik araştırmalara dayanarak aşamalı geliştirilen proof-of-stake blokzincir. Geliştirme temposunun yavaşlığı sık eleştirilir.',
+  'chainlink': 'Blokzincir dışındaki gerçek dünya verilerini (fiyat gibi) akıllı sözleşmelere taşıyan "oracle" ağı. Birçok DeFi projesi fiyat verisini buradan alır.',
+  'avalanche-2': 'İşlemleri çabuk sonuçlandıran ve özelleştirilebilir alt ağlar (subnet) sunan blokzincir platformu.',
+  'stellar': 'Sınır ötesi ödemeleri hızlı ve ucuz yapmak için tasarlanmış ağ. Bankalar ve ödeme şirketleriyle çalışmaya odaklanır.',
+  'sui': 'Move programlama dilini kullanan yeni nesil bir blokzincir. Yüksek hız ve düşük ücret hedefler.',
+  'the-open-network': 'Telegram ile ilişkili geliştirilen TON blokzinciri. Telegram içindeki mini uygulamalar ve ödemelerle öne çıkar.',
+  'shiba-inu': 'Dogecoin\'den esinlenen meme coin. Arzı çok büyük olduğu için birim fiyatı çok küçüktür; fiyatı spekülasyona dayanır.',
+  'hedera-hashgraph': 'Klasik blokzincirden farklı "hashgraph" teknolojisini kullanan, büyük şirketlerden oluşan bir konsey tarafından yönetilen ağ.',
+  'litecoin': '2011\'de Bitcoin\'e daha hızlı ve ucuz bir alternatif olarak çıkan, eski kripto paralardan biri.',
+  'polkadot': 'Farklı blokzincirlerinin birbirine bağlanıp haberleşmesini hedefleyen ağ.',
+  'uniswap': 'Ethereum\'daki en büyük merkeziyetsiz borsalardan (DEX) birinin yönetim tokenı. Kullanıcılar aracı olmadan token takas eder.',
+  'near': 'Kullanımı kolay olmayı hedefleyen, hızlı ve düşük ücretli blokzincir protokolü.',
+  'aptos': 'Eski Meta (Facebook) Diem projesi çalışanlarının kurduğu, Move dilini kullanan blokzincir.',
+  'pepe': 'Bir internet mizah figürüne dayanan meme coin. Fiyatı neredeyse tamamen spekülasyon ve sosyal medya ilgisiyle hareket eder; çok risklidir.',
+  'arbitrum': 'Ethereum\'un işlem ücretlerini düşürmeyi ve hızını artırmayı hedefleyen "katman 2" ağı.',
+  'cosmos': 'Birbirine bağlanabilen bağımsız blokzincirlerden oluşan "blokzincirler interneti" vizyonunun ağı.',
+  'aave': 'Kripto varlıkların ödünç alınıp verilebildiği büyük merkeziyetsiz borç verme protokollerinden biri.',
+  'filecoin': 'Kullanılmayan disk alanını kiralayarak merkeziyetsiz dosya depolama sunan ağ.',
+  'render-token': 'Grafik işlem gücünün (GPU) merkeziyetsiz biçimde kiralandığı ağ. Yapay zekâ ve 3B grafik işlerinde kullanılır.',
+  'injective-protocol': 'Finans uygulamalarına odaklanan, merkeziyetsiz türev piyasaları sunan blokzincir.',
+  'optimism': 'Ethereum\'un ücretlerini düşüren katman 2 ağı; Arbitrum\'un rakibi.',
+  'maker': 'DAI stabil coininin arkasındaki merkeziyetsiz borç protokolünün yönetim tokenı.',
+  'the-graph': 'Blokzincir verilerini düzenleyip uygulamaların kolayca sorgulamasını sağlayan indeksleme protokolü.',
+  'algorand': 'Hızlı ve enerji verimli proof-of-stake blokzincir.',
+  'bonk': 'Solana üzerindeki popüler bir meme coin.',
+  'celestia': 'Blokzincirlerin veri kaydı için kullandığı modüler veri erişilebilirlik katmanı.',
+  'sei-network': 'Alım satım uygulamaları için hız odaklı tasarlanmış blokzincir.',
+  'jupiter-exchange-solana': 'Solana\'daki en çok kullanılan token takas toplayıcısı Jupiter\'in tokenı.',
+  'ondo-finance': 'ABD Hazine tahvili gibi gerçek dünya varlıklarını zincir üstüne taşıyan (tokenizasyon) proje.',
+  'worldcoin-wld': 'Göz bebeği taramasıyla kişinin "gerçek insan" olduğunu kanıtlamayı amaçlayan proje. Gizlilik açısından tartışmalıdır.',
+  'floki': 'Köpek temalı meme coin ve ona bağlı küçük bir ekosistem.',
+  'dai': 'Dolara sabitlenmiş, teminatlı ve merkeziyetsiz stabil coin.',
+  'bitcoin-cash': '2017\'de Bitcoin\'den ayrılan, daha büyük blok boyutuyla hızlı ve ucuz ödemeyi hedefleyen coin.',
+  'monero': 'İşlem ayrıntılarını gizleyen, gizlilik odaklı kripto para. Bu özelliği nedeniyle bazı borsalardan çıkarılmıştır.',
+  'ethereum-classic': '2016\'daki bir saldırıdan sonra Ethereum\'un ikiye ayrılmasıyla ortaya çıkan, orijinal zinciri sürdüren ağ.',
+  'internet-computer': 'Uygulamaları doğrudan blokzincir üzerinde çalıştırmayı hedefleyen ağ.',
+  'vechain': 'Tedarik zinciri takibi ve kurumsal kullanım odaklı blokzincir.',
+  'stacks': 'Bitcoin üzerinde akıllı sözleşme çalıştırmayı hedefleyen katman.',
+  'lido-dao': 'Ethereum stake etmek isteyenlere karşılığında token veren en büyük stake protokollerinden birinin tokenı.',
+};
+const SIG_TXT = {
+  'GÜÇLÜ AL': 'Fiyat hareketi ve göstergelerin çoğu aynı yönde olumlu. Bu, yükselişin süreceği anlamına gelmez; yalnızca şu anki tablo taradığımız diğer varlıklara göre güçlü görünüyor.',
+  'AL': 'Göstergelerin çoğu olumlu ama tablo çok güçlü değil. Olumlu işaretler ağır basıyor, yine de olumsuz taraflar da var.',
+  'BEKLE': 'Net bir yön yok: olumlu ve olumsuz işaretler birbirini dengeliyor ya da fiyat yatay seyrediyor. Bu "sat" demek değildir; acele edilecek bir neden görünmüyor demektir.',
+  'AZALT': 'Göstergelerde zayıflama var. Olumsuz işaretler olumlulardan fazla, ama trend henüz belirgin biçimde aşağı dönmüş değil.',
+  'SAT': 'Fiyat belirgin biçimde aşağı yönde ve göstergelerin çoğu olumsuz. Düşen fiyatın nerede duracağını bilmek mümkün değil; bu yüzden böyle varlıklara yeni alım yapmak genellikle riskli kabul edilir.',
+};
+function rsiText(r) {
+  if (r === null || r === undefined) return null;
+  const v = r.toFixed(0);
+  if (r >= 75) return `RSI göstergesi 0 ile 100 arasında değer alır; 70 üstü "aşırı alım", 30 altı "aşırı satım" sayılır. Şu an ${v}: fiyat kısa sürede çok hızlı yükselmiş, bu da genellikle bir geri çekilme ihtimalini artırır.`;
+  if (r >= 65) return `RSI göstergesi 0 ile 100 arasında değer alır; 70 üstü "aşırı alım", 30 altı "aşırı satım" sayılır. Şu an ${v}: aşırı alım bölgesine yakın, yükselişin ivmesi zayıflayabilir.`;
+  if (r <= 30) return `RSI göstergesi 0 ile 100 arasında değer alır; 70 üstü "aşırı alım", 30 altı "aşırı satım" sayılır. Şu an ${v}: fiyat çok hızlı düşmüş. Bu bazen tepki yükselişine işaret eder, ama düşüş de sürebilir.`;
+  return `RSI göstergesi 0 ile 100 arasında değer alır; 70 üstü "aşırı alım", 30 altı "aşırı satım" sayılır. Şu an ${v}: normal aralıkta.`;
+}
+
+// Coin için uzun açıklama. fmt: fiyatı biçimlendiren işlev.
+function narrateCoin(c, fmt) {
+  fmt = fmt || ((v) => String(v));
+  const a = c.a, st = a.st, sec = [], risks = [];
+  if (a.signal === 'STABİL') {
+    sec.push({ h: 'Nasıl okunmalı?', p: [`${c.name}, değerini bir varlığa (genellikle bir para birimine ya da altına) sabitlemeyi hedefleyen bir token. Fiyatı normalde neredeyse hiç oynamaz, bu yüzden al/sat sinyali üretmiyoruz.`, 'Asıl risk fiyat hareketi değil, ihraççının rezervlerine ve düzenleyici duruma duyulan güvendir. Fiyatın hedefin belirgin biçimde altına düşmesi (depeg) ciddi bir uyarıdır.'] });
+    risks.push('İhraççı şirketin rezerv ve denetim bilgilerini takip edin; fiyat hedefin altına düşerse hemen dikkate alın.', 'Düzenleyici kararlar stabil coinlerin borsalarda işlem görmesini etkileyebilir.');
+    return { sec, risks };
+  }
+  const pos = st && st.hi > st.lo ? (st.last - st.lo) / (st.hi - st.lo) * 100 : null;
+  const ctx = [];
+  ctx.push(`${c.name}, piyasa değerine göre ${c.rank ?? 'sıralamada yer almayan'}${c.rank ? '. sırada' : ''} bir coin. Bu uygulamanın puanı ${a.score}/100, sinyali "${a.signal}", risk seviyesi "${a.risk}".`);
+  ctx.push(SIG_TXT[a.signal]);
+  if (a.hot) ctx.push('Fiyat çok hızlı yükselmiş olduğu için "aşırı ısınmış" olarak işaretlendi. Böyle durumlarda uygulama Al sinyali vermez; yükselişi kovalamak yerine geri çekilmeyi beklemek daha güvenli sayılır.');
+  sec.push({ h: 'Kısa özet', p: ctx });
+
+  const mv = [];
+  mv.push(`Fiyat son 1 saatte ${num(c.c1h) === null ? 'bilinmiyor' : fmtP(c.c1h)}, 24 saatte ${num(c.c24) === null ? 'bilinmiyor' : fmtP(c.c24)}, 7 günde ${num(c.c7) === null ? 'bilinmiyor' : fmtP(c.c7)} ve 30 günde ${num(c.c30) === null ? 'bilinmiyor' : fmtP(c.c30)} değişti.`);
+  if (st) {
+    mv.push(`Son 7 günün en düşük fiyatı ${fmt(st.lo)}, en yükseği ${fmt(st.hi)}. Şu anki fiyat bu aralığın yüzde ${pos.toFixed(0)}'inde (0 aralığın dibi, 100 tepesi). ${pos > 85 ? 'Yani fiyat haftanın zirvesine yakın.' : pos < 15 ? 'Yani fiyat haftanın dibine yakın.' : 'Yani fiyat aralığın ortalarında.'}`);
+    mv.push(`Fiyat 7 günlük ortalamasının yüzde ${f1(st.trend)} ${st.trend >= 0 ? 'üstünde' : 'altında'}. ${Math.abs(st.trend) < 3 ? 'Bu, kısa vadede belirgin bir yön olmadığını gösterir.' : st.trend > 0 ? 'Fiyat ortalamanın üstünde kalmaya devam ettikçe kısa vadeli eğilim yukarı sayılır.' : 'Fiyat ortalamanın altında kaldıkça kısa vadeli eğilim aşağı sayılır.'}`);
+  }
+  if (num(c.ath) !== null) mv.push(`Tüm zamanların en yüksek fiyatının yüzde ${f1(c.ath)} ${c.ath < 0 ? 'altında' : 'üstünde'}. ${c.ath < -80 ? 'Zirveden bu kadar uzak olmak, toparlanmanın uzun sürebileceğini gösterir.' : ''}`.trim());
+  sec.push({ h: 'Fiyat hareketi', p: mv });
+
+  const ind = [];
+  const rt = st && rsiText(st.rsi); if (rt) ind.push(rt);
+  if (a.vol !== null && a.vol !== undefined) ind.push(`Günlük ortalama dalgalanma yaklaşık yüzde ${f1(a.vol)}. Bu coin için gün içinde fiyatın bu kadar oynaması sıradan sayılır; yüzde ${f1(a.vol * 2)} civarı hareketler de nadir değildir.`);
+  if (a.liq) ind.push(`Son 24 saatteki işlem hacmi piyasa değerinin yüzde ${f1(a.liq * 100)}'i. ${a.liq < 0.02 ? 'Bu düşük bir oran: alım satım yapmak isteyen az olduğu için büyük emirlerde fiyat kayabilir.' : a.liq > 0.08 ? 'Bu yüksek bir oran: coin aktif işlem görüyor.' : 'Bu normal bir seviye.'}`);
+  if (ind.length) sec.push({ h: 'Göstergeler', p: ind });
+
+  const nw = [];
+  if (a.hits && a.hits.length) {
+    nw.push(`Taradığımız haber kaynaklarında bu coinle ilgili ${a.hits.length} başlık var. En yeni başlık: "${a.hits[0].title}" (${a.hits[0].source}).`);
+    const avgS = avg(a.hits.map((h) => h.score));
+    nw.push(avgS > 0.3 ? 'Başlıkların genel tonu olumlu.' : avgS < -0.3 ? 'Başlıkların genel tonu olumsuz.' : 'Başlıkların tonu nötr.');
+  } else nw.push('Taradığımız haber kaynaklarında bu coinle ilgili başlık bulunmuyor. Bu, haber akışının puana katkısının sıfır olduğu anlamına gelir.');
+  nw.push('Haber tonu, başlıklardaki kelimelere bakan basit bir taramayla ölçülür; haberin içeriğini anlayarak okumaz.');
+  sec.push({ h: 'Haberler', p: nw });
+
+  if (a.risk === 'Yüksek') risks.push('Risk seviyesi yüksek: fiyat çok sert dalgalanabilir veya coin küçük bir piyasa değerine sahip.');
+  if (a.hot) risks.push('Fiyat kısa sürede çok yükseldi. Böyle yükselişlerin ardından sert düşüş sık görülür.');
+  if (a.liq !== null && a.liq !== undefined && a.liq < 0.02) risks.push('İşlem hacmi düşük: istediğiniz anda istediğiniz fiyattan satamayabilirsiniz.');
+  if ((c.rank || 9999) > 200) risks.push('Piyasa değeri küçük bir coin. Küçük coinler az bir parayla bile sert hareket eder ve manipülasyona daha açıktır.');
+  if (num(c.c24) !== null && c.c24 < -10) risks.push('Son 24 saatte sert düştü; düşüş devam edebilir.');
+  if (a.hits && a.hits.length && avg(a.hits.map((h) => h.score)) < -0.3) risks.push('Haberlerde olumsuz söz ediliyor; başlıkların kendisini okuyup doğrulayın.');
+  risks.push('Kripto piyasası hafta sonu dahil 7/24 açıktır; fiyat siz uyurken de değişir.', 'Puan yalnızca geçmiş fiyat hareketine ve haber başlıklarına bakar. Projenin ekibini, teknolojisini ya da yasal durumunu değerlendirmez.', 'Kaybetmeyi göze alabileceğinizden fazlasını yatırmayın. Tek bir coine büyük tutar bağlamak riski artırır.');
+  return { sec, risks };
+}
+
+/* ---- Hisse analizi (günlük kapanış serisiyle) ---- */
+function stockStats(cl) {
+  if (!cl || cl.length < 22 || cl.some((v) => !(v > 0))) return null;
+  const n = cl.length, last = cl[n - 1];
+  const ret = (k) => (n > k ? (last / cl[n - 1 - k] - 1) * 100 : null);
+  const rets = []; for (let i = 1; i < n; i++) rets.push(Math.log(cl[i] / cl[i - 1]));
+  const r = rets.slice(-60), mu = avg(r), sd = Math.sqrt(avg(r.map((x) => (x - mu) ** 2)));
+  const w = cl.slice(-63);
+  return { last, c1: ret(1), c5: ret(5), c21: ret(21), c63: ret(63), trend: (last / avg(cl.slice(-20)) - 1) * 100, vol: sd * 100, rsi: rsi14(cl.slice(-60)), hi: Math.max(...w), lo: Math.min(...w), dd: (last / Math.max(...cl) - 1) * 100 };
+}
+function analyzeStock(cl, liveC) {
+  const st = stockStats(cl);
+  if (!st) return { signal: 'VERİ YOK', cls: 's-stable', score: 0, risk: null, reasons: [{ pos: null, t: 'Geçmiş fiyat verisi alınamadığı için bu hisse için puan hesaplanamadı. Canlı fiyat ve Midas bağlantısı yine de gösteriliyor.' }], st: null };
+  const c1 = num(liveC) ?? st.c1, c5 = st.c5 ?? 0, c21 = st.c21 ?? 0;
+  const R = []; let score = 0;
+  score += clamp(c5, -8, 8) / 8 * 25;
+  if (c5 >= 4) R.push({ pos: true, t: `Son 5 işlem gününde ${fmtP(c5)}: yukarı yönlü haftalık hareket.` });
+  else if (c5 <= -4) R.push({ pos: false, t: `Son 5 işlem gününde ${fmtP(c5)}: aşağı yönlü haftalık hareket.` });
+  else R.push({ pos: null, t: `Son 5 işlem gününde ${fmtP(c5)}: sakin seyir.` });
+  score += clamp(c21, -20, 20) / 20 * 25;
+  if (c21 >= 8) R.push({ pos: true, t: `Son bir ayda ${fmtP(c21)}: aylık trend yukarı.` });
+  else if (c21 <= -8) R.push({ pos: false, t: `Son bir ayda ${fmtP(c21)}: aylık trend aşağı.` });
+  score += clamp(c1 ?? 0, -4, 4) / 4 * 10;
+  score += clamp(st.trend, -6, 6) / 6 * 10;
+  if (st.trend > 3) R.push({ pos: true, t: `Fiyat 20 günlük ortalamasının %${f1(st.trend)} üstünde.` });
+  else if (st.trend < -3) R.push({ pos: false, t: `Fiyat 20 günlük ortalamasının %${f1(st.trend)} altında.` });
+  if (st.rsi !== null) {
+    if (st.rsi >= 75) { score -= 15; R.push({ pos: false, t: `RSI ${st.rsi.toFixed(0)}: aşırı alım bölgesi, geri çekilme riski yüksek.` }); }
+    else if (st.rsi >= 65) { score -= 5; R.push({ pos: false, t: `RSI ${st.rsi.toFixed(0)}: alım bölgesi sınırında.` }); }
+    else if (st.rsi >= 45) score += 5;
+    else if (st.rsi <= 30) { score += 8; R.push({ pos: true, t: `RSI ${st.rsi.toFixed(0)}: aşırı satım bölgesi, tepki yükselişi ihtimali var (düşüş sürebilir).` }); }
+  }
+  const hot = (c1 ?? 0) > 8 || c21 > 35 || (st.rsi !== null && st.rsi >= 75);
+  if ((c1 ?? 0) > 8) { score -= 12; R.push({ pos: false, t: `Bugün ${fmtP(c1)} sıçradı. Ani sıçramaların ardından geri çekilme sık görülür.` }); }
+  if (st.dd < -25) R.push({ pos: null, t: `Son 6 ayın zirvesinin %${f1(st.dd)} altında.` });
+  score = Math.round(clamp(score, -100, 100));
+  let signal, cls;
+  if (score >= 45) { signal = 'GÜÇLÜ AL'; cls = 's-strongbuy'; }
+  else if (score >= 20) { signal = 'AL'; cls = 's-buy'; }
+  else if (score > -10) { signal = 'BEKLE'; cls = 's-hold'; }
+  else if (score > -30) { signal = 'AZALT'; cls = 's-reduce'; }
+  else { signal = 'SAT'; cls = 's-sell'; }
+  if (hot && score >= 20) { signal = 'BEKLE'; cls = 's-hold'; R.unshift({ pos: false, t: 'Aşırı ısınma nedeniyle sinyal "bekle" seviyesine çekildi.' }); }
+  const risk = st.vol > 3.5 ? 'Yüksek' : st.vol > 2 ? 'Orta' : 'Düşük';
+  R.push({ pos: null, t: `Günlük ortalama dalgalanma yaklaşık %${f1(st.vol)}; risk seviyesi ${risk.toLowerCase()}.` });
+  return { signal, cls, score, risk, reasons: R, st, hot, c1 };
+}
+function narrateStock(s, a, fmt) {
+  fmt = fmt || ((v) => String(v));
+  const st = a.st, sec = [], risks = [];
+  if (!st) {
+    sec.push({ h: 'Kısa özet', p: [`${s.n} için geçmiş fiyat verisi alınamadı, bu yüzden puan ve ayrıntılı analiz üretemiyoruz. Hissenin ne iş yaptığını yukarıda okuyabilir, canlı fiyatı ve Midas bağlantısını aşağıda görebilirsiniz.`] });
+  } else {
+    sec.push({ h: 'Kısa özet', p: [`${s.n} (${s.s}) için bu uygulamanın puanı ${a.score}/100, sinyali "${a.signal}", risk seviyesi "${a.risk}".`, SIG_TXT[a.signal], ...(a.hot ? ['Fiyat kısa sürede çok yükseldiği için "aşırı ısınmış" olarak işaretlendi ve Al sinyali verilmedi.'] : [])] });
+    const pos = st.hi > st.lo ? (st.last - st.lo) / (st.hi - st.lo) * 100 : 50;
+    sec.push({ h: 'Fiyat hareketi', p: [
+      `Bir önceki işlem gününe göre ${fmtP(a.c1 ?? 0)}, son 5 işlem gününde ${st.c5 === null ? 'bilinmiyor' : fmtP(st.c5)}, son bir ayda ${st.c21 === null ? 'bilinmiyor' : fmtP(st.c21)}${st.c63 !== null ? ' ve son üç ayda ' + fmtP(st.c63) : ''} değişti.`,
+      `Son üç ayın en düşük kapanışı ${fmt(st.lo)}, en yükseği ${fmt(st.hi)}. Şu anki fiyat bu aralığın yüzde ${pos.toFixed(0)}'inde. ${pos > 85 ? 'Yani fiyat üç aylık zirveye yakın.' : pos < 15 ? 'Yani fiyat üç aylık dibe yakın.' : 'Yani fiyat aralığın ortalarında.'}`,
+      `Fiyat 20 günlük ortalamasının yüzde ${f1(st.trend)} ${st.trend >= 0 ? 'üstünde' : 'altında'}.`,
+    ] });
+    const ind = []; const rt = rsiText(st.rsi); if (rt) ind.push(rt);
+    ind.push(`Günlük ortalama dalgalanma yaklaşık yüzde ${f1(st.vol)}. Bu hisse için gün içinde fiyatın bu kadar oynaması sıradan sayılır.`);
+    sec.push({ h: 'Göstergeler', p: ind });
+    if (a.risk === 'Yüksek') risks.push('Günlük dalgalanma yüksek: fiyat kısa sürede sert değişebilir.');
+    if (a.hot) risks.push('Fiyat kısa sürede çok yükseldi; sert yükselişlerin ardından geri çekilme sık görülür.');
+    if (st.dd < -25) risks.push(`Hisse son 6 ayın zirvesinin %${f1(st.dd)} altında; düşüş trendi sürebilir.`);
+  }
+  risks.push('Hisse fiyatları yalnızca borsanın açık olduğu saatlerde oluşur. Kapanıştan sonraki haberler ertesi gün fiyata açılışta sert yansıyabilir.', 'Puan yalnızca geçmiş fiyat hareketine bakar. Şirketin bilançosunu, borcunu, sektörünü ve haberlerini değerlendirmez.', 'Midas\'ta gösterilen canlı fiyatlar gecikmeli olabilir (BIST için yaklaşık 15 dakika). İşlem yapmadan önce uygulamadaki güncel fiyatı kontrol edin.', 'Kaybetmeyi göze alabileceğinizden fazlasını yatırmayın.');
+  return { sec, risks };
+}
+function makeDemoStocks() {
+  const mk = (seed, base, drift) => { const r = rng(seed); let v = base; const a = []; for (let i = 0; i < 126; i++) { v *= 1 + drift + (r() - 0.5) * 0.03; a.push(Number(v.toPrecision(6))); } return a; };
+  const meta = {
+    us: [['AAPL', 'Apple', 'Teknoloji', 'iPhone, Mac ve iPad üreten teknoloji şirketi.'], ['NVDA', 'Nvidia', 'Yarı iletken', 'Grafik işlemci üreticisi; yapay zeka haberlerine duyarlıdır.'], ['KO', 'Coca-Cola', 'Gıda / İçecek', 'Dünyanın en büyük içecek markalarından biri.']],
+    bist: [['THYAO', 'Türk Hava Yolları', 'Ulaşım', 'Türkiye\'nin bayrak taşıyıcı havayolu şirketi.'], ['ASELS', 'Aselsan', 'Savunma', 'Savunma elektroniği alanında büyük şirket.'], ['BIMAS', 'BİM Mağazalar', 'Perakende', 'Büyük indirim marketi zinciri.']],
+  };
+  const m = (l) => l.map(([s, n, k, d]) => ({ s, n, k, d }));
+  const hist = { us: { AAPL: mk(11, 180, 0.001), NVDA: mk(12, 120, 0.003), KO: mk(13, 60, 0) }, bist: { THYAO: mk(14, 280, 0.002), ASELS: mk(15, 90, 0.004), BIMAS: mk(16, 500, -0.001) } };
+  const live = (h) => Object.fromEntries(Object.entries(h).map(([k, v]) => [k, { p: v[v.length - 1], c: (v[v.length - 1] / v[v.length - 2] - 1) * 100 }]));
+  return { updated: Date.now(), meta: { us: m(meta.us), bist: m(meta.bist) }, us: live(hist.us), bist: live(hist.bist), hist, ok: { midas: true, hist: true } };
+}
 // ENGINE END
 
 /* ---------- Arayüz ---------- */
@@ -428,7 +650,7 @@ const S = {
   tab: store.get('tab', 'pano'), cur: store.get('cur', 'usd'), favs: store.get('favs', []),
   coins: [], news: [], info: null, mode: 'loading', updated: 0,
   q: '', filter: 'hepsi', sort: 'mcap', shown: 40, sel: null,
-  ex: null, xw: 'midas', xq: '', xsort: 'skor', xshown: 40, canon: {},
+  ex: null, stocks: null, canon: {}, rw: 'coin', rq: '', rshown: 30, ropen: null, rfilter: 'hepsi', sa: { us: {}, bist: {} }, stocksTried: false, stocksBusy: false, stocksErr: false,
 };
 const CUR_LOCALE = { usd: 'USD', try: 'TRY', eur: 'EUR' };
 function money(v, cur) {
@@ -480,25 +702,6 @@ function exList(w) {
   return S.coins.filter((c) => { const sy = String(c.symbol).toUpperCase(); return S.canon[sy] === c.id && d[sy]; })
     .map((c) => ({ c, x: d[String(c.symbol).toUpperCase()], sym: String(c.symbol).toUpperCase(), w }));
 }
-function xrow(it) {
-  const { c, x, sym, w } = it;
-  return `<a class="row" href="${esc(xUrl(w, sym, x))}" target="_blank" rel="noopener noreferrer">
-    <span class="who">${avatar(c)}<span class="nm"><b>${esc(c.name)} <span class="ext" title="${XNAME[w]}'te aç">↗</span></b><span><span class="rank num">#${c.rank ?? '–'}</span> ${esc(sym)}</span></span></span>
-    <span class="px"><span class="num">${usd(x.p)}</span><span class="chg num ${cc(x.c)}">${pct(x.c)}</span></span>
-    <span class="sp">${sparkSvg(c.spark)}</span><span class="sig ${c.a.cls}">${c.a.signal}</span></a>`;
-}
-function xStatus(w) {
-  if (!S.ex) return S.mode === 'loading' ? 'Yükleniyor…' : 'Borsa verisine ulaşılamadı.';
-  if (S.ex.ok && S.ex.ok[w] === false) return XNAME[w] + ' verisine şu an ulaşılamıyor.';
-  return XNAME[w] + (S.mode === 'demo' ? ' (örnek veri)' : ' canlı') + ' · ' + exList(w).length + ' coin · ' + ago(S.ex.updated || Date.now());
-}
-function xPanel(w) {
-  const l = exList(w).filter((i) => i.c.a.signal !== 'STABİL' && !i.c.a.hot).sort((a, b) => b.c.a.score - a.c.a.score).slice(0, 6);
-  return `<section class="panel"><h2>${XNAME[w]}'te canlı</h2><p class="xstat">${esc(xStatus(w))}. Satıra basınca ${XNAME[w]} açılır.</p>
-    <div class="rows">${l.length ? l.map(xrow).join('') : '<div class="empty">Gösterilecek coin yok.</div>'}</div>
-    <button class="more" data-xgo="${w}">Tüm ${XNAME[w]} listesi</button></section>`;
-}
-
 /* ---------- Görünümler ---------- */
 function viewPano() {
   const i = S.info;
@@ -519,7 +722,6 @@ function viewPano() {
     <div class="rows">${best.length ? best.map(row).join('') : '<div class="empty">Şu an güçlü bir aday yok. Beklemek de bir karardır.</div>'}</div></section>
   <section class="panel"><h2>Uzak durulacaklar</h2><div class="sub" style="margin-bottom:6px">Zayıf trend ya da aşırı ısınmış coinler</div>
     <div class="rows">${worst.length ? worst.map(row).join('') : '<div class="empty">Belirgin bir uyarı yok.</div>'}</div></section>
-  ${xPanel('midas')}${xPanel('binance')}
   <section class="panel span2"><h2>Son haberler</h2>${newsList(news)}</section></div>`;
 }
 function newsList(list) {
@@ -551,19 +753,95 @@ function viewPiyasa() {
     <div class="rows">${l.length ? l.slice(0, S.shown).map(row).join('') : '<div class="empty">Sonuç yok.</div>'}</div>
     ${l.length > S.shown ? `<button class="more" id="more">Daha fazla göster (${l.length - S.shown})</button>` : ''}</section>`;
 }
-function viewBorsa() {
+/* ---------- Rehber ---------- */
+const STOCK_CFG = { us: { cur: 'USD', base: 'amerikan-borsasi' }, bist: { cur: 'TRY', base: 'canli-borsa' } };
+const stockUrl = (k, sym) => 'https://www.getmidas.com/' + STOCK_CFG[k].base + '/' + encodeURIComponent(String(sym).toLowerCase()) + '-hisse/';
+const chevron = '<svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l5 5 5-5"/></svg>';
+const proseHtml = (n) => n.sec.map((x) => `<h4>${esc(x.h)}</h4>${x.p.map((t) => `<p>${esc(t)}</p>`).join('')}`).join('');
+const reasonsHtml = (a) => `<h4>Neden bu sinyal?</h4><ul class="why">${a.reasons.map((r) => `<li class="${r.pos === true ? 'p' : r.pos === false ? 'n' : ''}">${esc(r.t)}</li>`).join('')}</ul>`;
+const risksHtml = (n) => `<h4>Riskler ve dikkat edilecekler</h4><ul>${n.risks.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>`;
+function chartHtml(vals, title, loLabel) {
+  if (!vals || vals.length < 2) return '';
+  const hi = Math.max(...vals), lo = Math.min(...vals), endY = 100 - ((vals[vals.length - 1] - lo) / (hi - lo || 1)) * 100;
+  return `<h4>${title}</h4><div class="chart">${sparkSvg(vals, 100, 100)}<span class="endp" style="left:100%;top:${endY.toFixed(1)}%"></span></div><div class="hilo num"><span>En düşük ${money(lo, loLabel)}</span><span>En yüksek ${money(hi, loLabel)}</span></div>`;
+}
+const xlink = (href, name, price, chg, cur) => `<a class="xl" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><span><b>${name}</b> <small>canlı fiyat</small></span><span class="num">${price === null ? '—' : money(price, cur)} ${chg === null || chg === undefined ? '' : `<b class="${chg >= 0 ? 't-up' : 't-dn'}">${pct(chg)}</b>`}</span><span class="ext">Aç ↗</span></a>`;
+
+function coinCard(c) {
+  const key = 'c:' + c.id, open = S.ropen === key, sy = String(c.symbol).toUpperCase();
+  const head = `<button class="rhead" data-ropen="${esc(key)}" aria-expanded="${open}">
+    <span class="who">${avatar(c)}<span class="nm"><b>${esc(c.name)}</b><span><span class="rank num">#${c.rank ?? '–'}</span> ${esc(sy)}</span></span></span>
+    <span class="rr"><span class="num">${money(c.price)} <span class="chg ${cc(c.c24)}">${pct(c.c24)}</span></span><span class="sig ${c.a.cls}">${c.a.signal}</span></span>${chevron}</button>`;
+  if (!open) return `<div class="rcard">${head}</div>`;
+  const nar = narrateCoin(c, money), info = COIN_INFO[c.id];
+  const ex = ['midas', 'binance'].map((w) => { const x = S.ex && S.ex[w] && S.canon[sy] === c.id ? S.ex[w][sy] : null; return x ? xlink(xUrl(w, sy, x), XNAME[w], x.p, x.c, 'USD') : ''; }).join('');
+  return `<div class="rcard open">${head}<div class="rbody prose">
+    <h4>${esc(c.name)} nedir?</h4><p>${info ? esc(info) : 'Bu coin için henüz elle yazılmış bir tanıtım yok.'} <a href="https://www.coingecko.com/en/coins/${encodeURIComponent(c.id)}" target="_blank" rel="noopener noreferrer">CoinGecko'da incele ↗</a></p>
+    ${c.a.st ? chartHtml(c.spark, 'Son 7 gün') : ''}
+    ${proseHtml(nar)}${reasonsHtml(c.a)}${risksHtml(nar)}
+    <h4>Nereden alınır?</h4>${ex || '<p>Midas ya da Binance\'ten canlı fiyat şu an alınamadı. Coin bu borsalarda listelenmiyor olabilir.</p>'}
+    <p class="rnote">Bu açıklamalar yatırım tavsiyesi değildir.</p></div></div>`;
+}
+function stockCard(k, m) {
+  const key = 's:' + k + ':' + m.s, open = S.ropen === key, cfg = STOCK_CFG[k];
+  const a = (S.sa[k] && S.sa[k][m.s]) || analyzeStock(null, null);
+  const lv = S.stocks[k] && S.stocks[k][m.s], h = S.stocks.hist && S.stocks.hist[k] && S.stocks.hist[k][m.s];
+  const price = lv ? lv.p : (h ? h[h.length - 1] : null), chg = lv && lv.c !== null && lv.c !== undefined ? lv.c : (a.c1 ?? null);
+  const head = `<button class="rhead" data-ropen="${esc(key)}" aria-expanded="${open}">
+    <span class="who"><span class="av">${esc(m.s.slice(0, 3))}</span><span class="nm"><b>${esc(m.n)}</b><span>${esc(m.s)} · ${esc(m.k)}</span></span></span>
+    <span class="rr"><span class="num">${price === null ? '—' : money(price, cfg.cur)} <span class="chg ${cc(chg)}">${pct(chg)}</span></span><span class="sig ${a.cls}">${a.signal}</span></span>${chevron}</button>`;
+  if (!open) return `<div class="rcard">${head}</div>`;
+  const nar = narrateStock(m, a, (v) => money(v, cfg.cur));
+  return `<div class="rcard open">${head}<div class="rbody prose">
+    <h4>${esc(m.n)} nedir?</h4><p>${esc(m.d)}</p>
+    ${h ? chartHtml(h.slice(-63), 'Son 3 ay (günlük kapanış)', cfg.cur) : ''}
+    ${proseHtml(nar)}${a.st ? reasonsHtml(a) : ''}${risksHtml(nar)}
+    <h4>Nereden alınır?</h4>${xlink(stockUrl(k, m.s), 'Midas', price, chg, cfg.cur)}
+    <p class="rnote">${lv ? 'Fiyat Midas\'tan alındı' + (k === 'bist' ? ' (yaklaşık 15 dakika gecikmeli olabilir).' : '.') : 'Midas\'tan canlı fiyat alınamadı; gösterilen son kapanış fiyatıdır.'} Bu açıklamalar yatırım tavsiyesi değildir.</p></div></div>`;
+}
+function viewRehber() {
   if (!S.info) return '<div class="loading">Piyasa taranıyor…</div>';
-  const w = S.xw, q = S.xq.trim().toLowerCase();
-  let l = exList(w).filter((i) => !q || i.c.name.toLowerCase().includes(q) || i.sym.toLowerCase().includes(q));
-  const key = { skor: (i) => -i.c.a.score, c24: (i) => -(i.x.c ?? -1e9), mcap: (i) => i.c.rank ?? 1e9 }[S.xsort];
-  l.sort((a, b) => key(a) - key(b));
-  const chip = (k) => `<button class="chip" data-xw="${k}" aria-pressed="${w === k}">${XNAME[k]} (${exList(k).length})</button>`;
-  return `<div class="chips">${chip('midas')}${chip('binance')}</div>
-    <div class="bar"><input id="xq" type="search" placeholder="${XNAME[w]}'te coin ara" value="${esc(S.xq)}" aria-label="Coin ara">
-    <select id="xsort" class="ctl" aria-label="Sırala">${[['skor', 'Puan'], ['c24', '24 saat'], ['mcap', 'Piyasa değeri']].map(([k, t]) => `<option value="${k}"${S.xsort === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
-    <section class="panel"><p class="xstat">${esc(xStatus(w))}. Fiyatlar ${XNAME[w]}'in kendi fiyatıdır (dolar). Satıra basınca ${XNAME[w]} açılır; puan ve sinyal bu uygulamanın analizidir.</p>
-    <div class="rows">${l.length ? l.slice(0, S.xshown).map(xrow).join('') : '<div class="empty">Sonuç yok.</div>'}</div>
-    ${l.length > S.xshown ? `<button class="more" id="xmore">Daha fazla göster (${l.length - S.xshown})</button>` : ''}</section>`;
+  const chip = (k, t) => `<button class="chip" data-rw="${k}" aria-pressed="${S.rw === k}">${t}</button>`;
+  const q = S.rq.trim().toLowerCase();
+  let body = '';
+  if (S.rw === 'coin') {
+    const ids = { midas: new Set(exList('midas').map((i) => i.c.id)), binance: new Set(exList('binance').map((i) => i.c.id)) };
+    let l = S.coins.filter((c) => !q || c.name.toLowerCase().includes(q) || String(c.symbol).toLowerCase().includes(q));
+    if (S.rfilter !== 'hepsi') l = l.filter((c) => ids[S.rfilter].has(c.id));
+    const fc = (k, t) => `<button class="chip" data-rf="${k}" aria-pressed="${S.rfilter === k}">${t}</button>`;
+    body = `<div class="chips">${fc('hepsi', 'Tüm coinler')}${fc('midas', "Midas'ta olanlar")}${fc('binance', "Binance'te olanlar")}</div>
+      <p class="rnote">Bir coine basınca ne olduğu, uzun analizi, riskleri ve Midas/Binance canlı fiyatı açılır. ${S.ex ? '' : 'Borsa fiyatları yüklenemedi.'}</p>
+      ${l.slice(0, S.rshown).map(coinCard).join('') || '<div class="empty">Sonuç yok.</div>'}
+      ${l.length > S.rshown ? `<button class="more" id="rmore">Daha fazla göster (${l.length - S.rshown})</button>` : ''}`;
+  } else {
+    const k = S.rw;
+    if (!S.stocks) body = S.stocksErr ? `<div class="empty">Hisse verisine ulaşılamadı.<br><button class="btn retry" id="stretry">Tekrar dene</button></div>` : '<div class="loading">Hisse verisi yükleniyor… İlk açılışta yarım dakika sürebilir.</div>';
+    else {
+      const list = (S.stocks.meta[k] || []).filter((m) => !q || m.n.toLowerCase().includes(q) || m.s.toLowerCase().includes(q) || m.k.toLowerCase().includes(q));
+      const okM = S.stocks.ok && S.stocks.ok.midas, okH = S.stocks.ok && S.stocks.ok.hist;
+      body = `<p class="rnote">${S.mode === 'demo' ? 'Örnek veri gösteriliyor. ' : ''}${k === 'bist' ? 'Seçilmiş büyük Borsa İstanbul şirketleri.' : 'Seçilmiş büyük ABD şirketleri.'} Liste her şirketi kapsamaz.${okM ? '' : ' Midas fiyatlarına şu an ulaşılamıyor.'}${okH ? '' : ' Geçmiş fiyat verisi alınamadığı için puan hesaplanamıyor.'}</p>
+        ${list.map((m) => stockCard(k, m)).join('') || '<div class="empty">Sonuç yok.</div>'}`;
+    }
+  }
+  return `<div class="chips">${chip('coin', 'Coinler')}${chip('us', 'ABD hisseleri')}${chip('bist', 'BIST hisseleri')}</div>
+    <div class="bar"><input id="rq" type="search" placeholder="${S.rw === 'coin' ? 'Coin ara' : 'Hisse ara'}" value="${esc(S.rq)}" aria-label="Ara"></div>${body}`;
+}
+function analyzeAllStocks() {
+  S.sa = { us: {}, bist: {} };
+  for (const k of ['us', 'bist']) for (const m of (S.stocks.meta[k] || [])) {
+    const lv = S.stocks[k] && S.stocks[k][m.s];
+    S.sa[k][m.s] = analyzeStock(S.stocks.hist && S.stocks.hist[k] && S.stocks.hist[k][m.s], lv ? lv.c : null);
+  }
+}
+async function loadStocks() {
+  if (S.stocksBusy) return;
+  S.stocksBusy = true; S.stocksTried = true; S.stocksErr = false;
+  try {
+    S.stocks = S.mode === 'demo' ? makeDemoStocks() : await getJson('/api/stocks', 45000);
+    if (!S.stocks || !S.stocks.meta) throw new Error('bozuk');
+    analyzeAllStocks();
+  } catch (e) { S.stocks = null; S.stocksErr = true; }
+  S.stocksBusy = false; render();
 }
 function viewHaber() {
   if (!S.info) return '<div class="loading">Haberler yükleniyor…</div>';
@@ -572,10 +850,11 @@ function viewHaber() {
 function render() {
   document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)));
   const v = $('#view');
-  const ae = document.activeElement, keepId = ae && (ae.id === 'q' || ae.id === 'xq') ? ae.id : null;
+  const ae = document.activeElement, keepId = ae && (ae.id === 'q' || ae.id === 'rq') ? ae.id : null;
   const keep = keepId ? ae.selectionStart : null;
-  v.innerHTML = S.tab === 'pano' ? viewPano() : S.tab === 'piyasa' ? viewPiyasa() : S.tab === 'borsa' ? viewBorsa() : viewHaber();
+  v.innerHTML = S.tab === 'pano' ? viewPano() : S.tab === 'piyasa' ? viewPiyasa() : S.tab === 'rehber' ? viewRehber() : viewHaber();
   if (keep !== null) { const q = $('#' + keepId); if (q) { q.focus(); q.setSelectionRange(keep, keep); } }
+  if (S.tab === 'rehber' && S.rw !== 'coin' && !S.stocks && !S.stocksTried && S.mode !== 'loading') loadStocks();
   const st = $('#status');
   st.className = 'pill ' + (S.mode === 'live' ? 'live' : S.mode === 'demo' ? 'demo' : '');
   st.lastElementChild.textContent = S.mode === 'live' ? 'Canlı · ' + ago(S.updated) : S.mode === 'demo' ? 'Örnek veri' : 'Yükleniyor';
@@ -601,11 +880,6 @@ function openSheet(id) {
     ${st ? `<section class="panel"><h2>Son 7 gün</h2><div class="chart">${sparkSvg(c.spark, 100, 100)}<span class="endp" style="left:100%;top:${endY.toFixed(1)}%"></span></div><div class="hilo num"><span>En düşük ${money(lo)}</span><span>En yüksek ${money(hi)}</span></div></section>` : ''}
     <section class="panel"><div class="metrics">${metric('Piyasa değeri', big(c.mcap))}${metric('24 sa hacim', big(c.vol))}${metric('Hacim / değer', a.liq ? '%' + f1(a.liq * 100) : '—')}${metric('Zirveden uzaklık', num(c.ath) === null ? '—' : pct(c.ath, 0))}${metric('RSI (7 gün)', st && st.rsi !== null ? st.rsi.toFixed(0) : '—')}${metric('Günlük oynaklık', st ? '%' + f1(st.vol) : '—')}</div></section>
     ${(a.hits || []).length ? `<section class="panel"><h2>Bu coinle ilgili haberler</h2>${newsList(a.hits.slice(0, 5))}</section>` : ''}
-    ${(() => {
-      const sy = String(c.symbol).toUpperCase();
-      const l = ['midas', 'binance'].map((w) => { const x = S.ex && S.ex[w] && S.canon[sy] === c.id ? S.ex[w][sy] : null; return x ? `<a class="xl" href="${esc(xUrl(w, sy, x))}" target="_blank" rel="noopener noreferrer"><span><b>${XNAME[w]}</b> <small>canlı fiyat</small></span><span class="num">${usd(x.p)} <b class="${cc(x.c) === 'up' ? 't-up' : 't-dn'}">${pct(x.c)}</b></span><span class="ext">Aç ↗</span></a>` : ''; }).join('');
-      return l ? `<section class="panel"><h2>Nereden alınır</h2>${l}</section>` : '';
-    })()}
     <div class="actions"><button class="btn fav" id="fav" aria-pressed="${isFav}">${isFav ? '★ Favorilerde' : '☆ Favoriye ekle'}</button></div>
     <p class="disc">Bu puan yatırım tavsiyesi değildir. Fiyat hareketi ve haber başlıklarındaki kelimelerden otomatik hesaplanır.</p>`;
   $('#scrim').hidden = false;
@@ -614,8 +888,8 @@ function openSheet(id) {
 function closeSheet() { $('#scrim').hidden = true; S.sel = null; }
 
 /* ---------- Veri ---------- */
-async function getJson(url) {
-  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 12000);
+async function getJson(url, ms) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms || 12000);
   try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return await r.json(); } finally { clearTimeout(t); }
 }
 async function loadEx() {
@@ -648,25 +922,26 @@ document.addEventListener('click', (e) => {
   else if (t.dataset.coin) openSheet(t.dataset.coin);
   else if (t.dataset.filter) { S.filter = t.dataset.filter; S.shown = 40; render(); }
   else if (t.id === 'more') { S.shown += 60; render(); }
-  else if (t.id === 'xmore') { S.xshown += 60; render(); }
-  else if (t.dataset.xw) { S.xw = t.dataset.xw; S.xshown = 40; render(); }
-  else if (t.dataset.xgo) { S.xw = t.dataset.xgo; S.tab = 'borsa'; store.set('tab', S.tab); render(); window.scrollTo(0, 0); }
+  else if (t.id === 'rmore') { S.rshown += 40; render(); }
+  else if (t.id === 'stretry') { S.stocksTried = false; render(); }
+  else if (t.dataset.ropen) { S.ropen = S.ropen === t.dataset.ropen ? null : t.dataset.ropen; render(); }
+  else if (t.dataset.rw) { S.rw = t.dataset.rw; S.rq = ''; S.ropen = null; S.rshown = 30; render(); }
+  else if (t.dataset.rf) { S.rfilter = t.dataset.rf; S.rshown = 30; S.ropen = null; render(); }
   else if (t.id === 'close' || (t.id === 'scrim' && e.target === t)) closeSheet();
-  else if (t.id === 'refresh') load(true);
+  else if (t.id === 'refresh') { S.stocksTried = false; S.stocks = null; load(true); }
   else if (t.id === 'fav') {
     S.favs = S.favs.includes(S.sel) ? S.favs.filter((x) => x !== S.sel) : [...S.favs, S.sel];
     store.set('favs', S.favs); openSheet(S.sel); render();
   }
 });
-document.addEventListener('input', (e) => { if (e.target.id === 'q') { S.q = e.target.value; S.shown = 40; render(); } else if (e.target.id === 'xq') { S.xq = e.target.value; S.xshown = 40; render(); } });
+document.addEventListener('input', (e) => { if (e.target.id === 'q') { S.q = e.target.value; S.shown = 40; render(); } else if (e.target.id === 'rq') { S.rq = e.target.value; S.rshown = 30; render(); } });
 document.addEventListener('change', (e) => {
   if (e.target.id === 'sort') { S.sort = e.target.value; render(); }
-  else if (e.target.id === 'xsort') { S.xsort = e.target.value; render(); }
   else if (e.target.id === 'cur') { S.cur = e.target.value; store.set('cur', S.cur); load(); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#scrim').hidden) closeSheet(); });
 $('#cur').value = S.cur;
-if (!['pano', 'piyasa', 'haber', 'borsa'].includes(S.tab)) S.tab = 'pano';
+if (!['pano', 'piyasa', 'haber', 'rehber'].includes(S.tab)) S.tab = 'pano';
 load();
 setInterval(() => { if (S.mode === 'live' && !document.hidden && $('#scrim').hidden) load(); }, 120000);
 </script>

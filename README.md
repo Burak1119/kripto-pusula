@@ -8,6 +8,7 @@ Uygulama senin yerine işlem **yapmaz**. Sadece analiz eder ve gerekçesiyle ön
 
 - **Fiyat verisi:** CoinGecko (ilk 500 coin, 7 günlük fiyat grafiği, 1sa/24sa/7g/30g değişim, hacim).
 - **Borsalar:** Binance (herkese açık piyasa verisi, anahtar gerekmez) ve Midas (getmidas.com/canli-kripto sayfasındaki herkese açık tablo). Midas'ın resmi bir API'si olmadığı için sayfa tasarımı değişirse Midas bölümü boş kalabilir, uygulamanın geri kalanı etkilenmez. Bir satıra basınca ilgili borsanın coin sayfası açılır.
+- **Rehber sekmesi:** Her coin için ne olduğu, uzun analiz, riskler ve Midas/Binance canlı fiyatı. ABD ve BIST hisseleri için de aynısı: fiyatlar Midas'ın herkese açık sayfalarından, geçmiş fiyat (analiz için) Yahoo Finance'in herkese açık grafik verisinden gelir. Bu iki kaynak da resmi bir API değildir; çalışmazsa ilgili kısım boş kalır, uygulama çalışmaya devam eder.
 - **Haberler:** CoinDesk, Cointelegraph (EN ve TR), Decrypt, The Block RSS yayınları.
 - **Puan (-100 ile +100):** 7 ve 30 günlük momentum, 24 saatlik hareket, fiyatın 7 günlük ortalamaya göre yeri, RSI, hacim/piyasa değeri oranı, coin büyüklüğü ve haber başlıklarının tonu.
 - **Koruma:** Çok sert yükselmiş ya da RSI'ı aşırı alım bölgesinde olan coin "aşırı ısınmış" sayılır ve asla Al sinyali almaz.

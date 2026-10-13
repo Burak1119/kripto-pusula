@@ -16,6 +16,11 @@ Uygulama senin yerine işlem **yapmaz**. Sadece analiz eder ve gerekçesiyle ön
 - **Sinyal karnesi (Pano):** uygulamanın Al / Bekle / Sat sinyallerinin geçmişte işe yarayıp yaramadığını (1 hafta sonrası fiyat) kendi geçmiş verisiyle sınar. Haber puanı karneye dahil değildir; geleceği garanti etmez.
 - **Küçük coinler:** ana alım adayları yalnızca ilk 100 coinden seçilir; sırası 100'ün dışındakiler ayrı bir "Riskli ama hareketli" kutusunda uyarıyla gösterilir.
 - **Bildirimler:** sinyali Azalt/Sat'a dönen ya da bir günde %8'den fazla oynayan varlıklar için bildirim. Uygulama açıkken ya da arka planda canlıyken çalışır; uygulama tamamen kapalıyken bildirim için ayrı bir sunucu servisi gerekir. iPhone'da önce Ana Ekrana eklemek gerekir.
+- **Fiyat alarmı:** bir varlığın ayrıntı penceresinin altından hedef fiyat yazılır; yön (yukarı/aşağı) kendiliğinden belirlenir. Ulaşılınca bildirim ve ekranda uyarı gelir (bir kez çalar, istenirse yeniden kurulur).
+- **İşlem geçmişi:** Portföyde bir varlığa basınca alış/satış işlemleri eklenir. Ortalama maliyet kendiliğinden hesaplanır, satışlarda gerçekleşen kâr/zarar görünür. İşlemler portföy koduna dahildir.
+- **Dağılım uyarısı, "Bu hafta" kartı:** tek varlıkta yoğunlaşma uyarısı ve son 1 haftanın portföy özeti.
+- **Haber çevirisi:** İngilizce başlıklar otomatik çevrilir (Haberler sekmesinden kapatılır). Çeviri resmî olmayan, anahtarsız servislerle yapılır; çalışmazsa orijinal başlık görünür. Puanlama her zaman orijinal başlıkla yapılır.
+- **Uygulama kapalıyken bildirim:** `KURULUM.md` dosyasındaki 5 adım (Redis + üç değişken + zamanlayıcı). Kurulmazsa bildirimler yalnızca uygulama açıkken çalışır.
 - **Logolar:** Coin logoları CoinGecko'dan, hisse logoları şirketlerin kendi sitelerinin simgesinden (Google, olmazsa DuckDuckGo) gelir. Bulunamazsa harfler gösterilir.
 - **Puan (-100 ile +100):** 7 ve 30 günlük momentum, 24 saatlik hareket, fiyatın 7 günlük ortalamaya göre yeri, RSI, hacim/piyasa değeri oranı, coin büyüklüğü ve haber başlıklarının tonu.
 - **Koruma:** Çok sert yükselmiş ya da RSI'ı aşırı alım bölgesinde olan coin "aşırı ısınmış" sayılır ve asla Al sinyali almaz.
@@ -43,7 +48,7 @@ Sonra tarayıcıda http://localhost:3000 adresini aç.
 ## Dosyalar
 
 - `src/app.html` uygulamanın tamamı (arayüz ve analiz motoru). Değiştirdikten sonra `python3 build.py` ile `public/` klasörü yeniden üretilir.
-- `api/coins.js`, `api/news.js`, `api/exchanges.js`, `api/stocks.js`, `api/fx.js` (döviz kuru), `api/history.js` (karne için coin geçmişi) veri toplayan sunucu kısmı.
+- `api/coins.js`, `api/news.js`, `api/exchanges.js`, `api/stocks.js`, `api/fx.js` (döviz kuru), `api/history.js` (karne için coin geçmişi), `api/push.js` ve `api/cron.js` (arka plan bildirimi), `api/translate.js` (haber çevirisi), `api/_engine.js` ve `api/_store.js`, `api/_push.js` (yardımcılar; `_engine.js` build.py ile üretilir) veri toplayan sunucu kısmı.
 - `test/` analiz motoru ve sunucu testleri (`node test/engine.test.js`, `node test/api.test.js`, `node test/exchanges.test.js`, `node test/stocks.test.js`).
 
 ## Önemli

@@ -51,6 +51,13 @@ const BIST = [
   ['KOZAL', 'Koza Altın', 'Madencilik', 'Altın madeni işleten şirket. Altın fiyatından güçlü etkilenir.'],
   ['ENKAI', 'Enka İnşaat', 'İnşaat / Enerji', 'Büyük altyapı projeleri üstlenen inşaat ve enerji şirketi.'],
   ['ASTOR', 'Astor Enerji', 'Enerji ekipmanı', 'Trafo ve elektrik dağıtım ekipmanı üreticisi.'],
+  ['SAHOL', 'Sabancı Holding', 'Holding', 'Türkiye\'nin en büyük holdinglerinden biri. Bankacılık (Akbank), enerji, çimento ve perakende gibi alanlarda pay sahibidir.'],
+  ['ALBRK', 'Albaraka Türk', 'Bankacılık', 'Faizsiz sistemle çalışan (katılım bankacılığı) bir bankadır.'],
+  ['KTLEV', 'Katılımevim', 'Finans', 'Faizsiz sistemle konut, taşıt gibi alımlar için tasarruf finansmanı sunan şirket.'],
+];
+// Avrupa borsaları (Midas bu hisseleri de amerikan-borsasi sayfası altında listeler)
+const EU = [
+  ['DTE', 'Deutsche Telekom', 'Telekomünikasyon', 'Almanya merkezli, Avrupa\'nın büyük telekomünikasyon şirketlerinden biri. ABD\'deki T-Mobile\'ın da çoğunluk sahibidir.'],
 ];
 // Logo için şirket sitesi alanı ve haber eşleştirmede kullanılacak takma adlar
 const DOM = {
@@ -60,6 +67,7 @@ const DOM = {
   THYAO: 'turkishairlines.com', ASELS: 'aselsan.com', BIMAS: 'bim.com.tr', KCHOL: 'koc.com.tr', GARAN: 'garantibbva.com.tr', AKBNK: 'akbank.com',
   ISCTR: 'isbank.com.tr', YKBNK: 'yapikredi.com.tr', EREGL: 'erdemir.com.tr', TUPRS: 'tupras.com.tr', SASA: 'sasa.com.tr', FROTO: 'fordotosan.com.tr',
   TOASO: 'tofas.com.tr', SISE: 'sisecam.com.tr', PGSUS: 'flypgs.com', TCELL: 'turkcell.com.tr', ARCLK: 'arcelikglobal.com', PETKM: 'petkim.com.tr',
+  SAHOL: 'sabanci.com', ALBRK: 'albaraka.com.tr', KTLEV: 'katilimevim.com.tr', DTE: 'telekom.com',
   KRDMD: 'kardemir.com', HEKTS: 'hektas.com.tr', EKGYO: 'emlakkonut.com.tr', KOZAL: 'kozaaltin.com.tr', ENKAI: 'enka.com', ASTOR: 'astor.com.tr',
 };
 const AL = {
@@ -69,7 +77,7 @@ const AL = {
 };
 const meta = () => {
   const f = ([s, n, k, d]) => ({ s, n, k, d, dom: DOM[s] || '', al: AL[s] || [] });
-  return { us: US.map(f), bist: BIST.map(f) };
+  return { us: US.map(f), bist: BIST.map(f), eu: EU.map(f) };
 };
 
 const strip = (h) => h.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
@@ -138,7 +146,7 @@ async function getHist(list, suffix) {
 }
 
 let live = { ts: 0, bist: {}, us: {}, ok: false };
-let hist = { ts: 0, us: {}, bist: {} };
+let hist = { ts: 0, us: {}, bist: {}, eu: {} };
 async function handler(req, res) {
   res.setHeader('content-type', 'application/json; charset=utf-8');
   res.setHeader('access-control-allow-origin', '*');
@@ -147,10 +155,11 @@ async function handler(req, res) {
     try { const m = await getMidas(); live = { ts: Date.now(), ...m }; } catch (e) { live.ts = Date.now(); live.ok = false; }
   }
   if (Date.now() - hist.ts > 30 * 60 * 1000) {
-    const [u, b] = await Promise.all([getHist(US, ''), getHist(BIST, '.IS')]);
-    hist = { ts: Date.now(), us: Object.keys(u).length ? u : hist.us, bist: Object.keys(b).length ? b : hist.bist };
+    const [u, b, e] = await Promise.all([getHist(US, ''), getHist(BIST, '.IS'), getHist(EU, '.DE')]);
+    hist = { ts: Date.now(), us: Object.keys(u).length ? u : hist.us, bist: Object.keys(b).length ? b : hist.bist, eu: Object.keys(e).length ? e : hist.eu };
   }
-  res.end(JSON.stringify({ updated: live.ts, meta: meta(), us: live.us, bist: live.bist, hist: { us: hist.us, bist: hist.bist }, ok: { midas: live.ok, hist: Object.keys(hist.us).length + Object.keys(hist.bist).length > 0 } }));
+  const eu = {}; for (const [sym] of EU) if (live.us && live.us[sym]) eu[sym] = live.us[sym];
+  res.end(JSON.stringify({ updated: live.ts, meta: meta(), us: live.us, bist: live.bist, eu, hist: { us: hist.us, bist: hist.bist, eu: hist.eu }, ok: { midas: live.ok, hist: Object.keys(hist.us).length + Object.keys(hist.bist).length + Object.keys(hist.eu).length > 0 } }));
 }
 module.exports = handler;
 module.exports.parseMidasStocks = parseMidasStocks;

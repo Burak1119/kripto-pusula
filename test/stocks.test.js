@@ -18,6 +18,8 @@ assert.strictEqual(c.length, 31);
 assert.strictEqual(st.parseYahoo({ chart: { result: null } }), null);
 console.log('ok   yahoo: boş değerler atıldı, bozuk yanıt null');
 const m = st.meta(); assert(m.us.length >= 15 && m.bist.length >= 15 && m.us.every((x) => x.d.length > 20));
+for (const k of ['SAHOL', 'ALBRK', 'KTLEV']) assert(m.bist.some((x) => x.s === k && x.dom && x.d.length > 20), k + ' BIST listesinde olmalı');
+assert(m.eu.length >= 1 && m.eu[0].s === 'DTE' && m.eu[0].dom, 'Avrupa listesinde DTE olmalı');
 console.log('ok   meta:', m.us.length, 'ABD,', m.bist.length, 'BIST hissesi, hepsinde tanıtım var');
 const a1 = st.parseMidasStocks('<a href="/canli-borsa/a1cap-hisse/">A1CAP</a> <td>4,19</td> <td>-3,90%</td>', 'canli-borsa');
 assert.deepStrictEqual(a1.A1CAP, { p: 4.19, c: -3.9 });

@@ -148,8 +148,8 @@ h2 { font-family: var(--font-display); font-size: 19px; font-weight: 800; letter
 .av img { opacity: 0; transition: opacity .2s; } .av img.ok { opacity: 1; }
 .nm { min-width: 0; }
 .nm b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nm span { color: var(--muted); font-size: 12px; white-space: nowrap; }
-.px { text-align: right; }
+.nm > span { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.px { text-align: right; white-space: nowrap; }
 .px .num { display: block; font-size: 14px; }
 .chg { font-size: 12px; font-weight: 600; }
 .chg.up, .t-up { color: var(--up); }
@@ -281,9 +281,39 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 .pick .tags span { background: rgba(255, 255, 255, .2); border-radius: 99px; padding: 4px 11px; font-size: 12px; font-weight: 600; }
 .pick .go { font-weight: 700; font-size: 15px; }
 @media (prefers-reduced-motion: reduce) { .pick { transition: none; } .pick:hover { transform: none; } }
+/* portföy satırı: telefonda değer sağda, sinyal onun altında; geniş ekranda dört sütun */
+.row.prow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+.row.prow .sig { grid-column: 2; justify-self: end; }
+@container (min-width: 540px) { .row.prow { grid-template-columns: minmax(0, 1fr) 190px 90px 100px; } .row.prow .sig { grid-column: auto; } }
 .rnote.warn { background: var(--warn-bg); color: var(--ink); padding: 8px 12px; border-radius: 10px; }
 .av.logo { background: var(--surface2); }
 .av.logo img { object-fit: contain; padding: 4px; background: #fff; }
+
+/* portföy */
+.pf-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.pf-head h2 { margin: 0; font-size: 24px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.danger { color: var(--down); border-color: var(--down); }
+.pfg + .pfg { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.pf-total { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 38px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; margin: 2px 0 8px; }
+.pf-line { display: flex; gap: 4px 18px; flex-wrap: wrap; font-size: 14px; }
+.alloc { display: flex; gap: 2px; height: 14px; border-radius: 99px; overflow: hidden; margin: 14px 0 8px; background: var(--surface2); }
+.alloc span { min-width: 3px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+.pnote { font-size: 13px; padding: 0 4px 12px 48px; }
+.pnote b { color: var(--down); }
+.pfform { display: grid; gap: 12px; margin-top: 12px; }
+.pfform label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.pfform input, .pfform select, .pfform textarea { background: var(--glass); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 16px; color: var(--ink); font-weight: 400; width: 100%; }
+.pfform textarea { min-height: 84px; font-family: var(--font-mono); font-size: 12px; resize: vertical; }
+.pfform .hint { font-size: 12px; font-weight: 400; color: var(--muted); }
+.pfform .err { color: var(--down); font-size: 13px; min-height: 1em; }
+.pfform .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.banner.ok { background: var(--up-bg); }
+.banner.ok b { color: var(--up); }
+.imp-actions { display: flex; gap: 8px; margin-top: 8px; }
+#importbar:empty { display: none; }
 </style>
 
 <div id="app">
@@ -304,11 +334,13 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
     <button data-kind="stock" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V4M4 20h16"/><path d="M8 15l3-4 3 2 5-6"/></svg>Hisse</button>
   </div>
   <div id="banner"></div>
+  <div id="importbar"></div>
   <nav class="tabs" role="tablist" aria-label="Bölümler">
     <button role="tab" data-tab="pano" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5Z"/></svg>Pano</button>
     <button role="tab" data-tab="piyasa" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Piyasa</button>
     <button role="tab" data-tab="haber" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3Z"/><path d="M9 9h6M9 13h6"/></svg>Haberler</button>
     <button role="tab" data-tab="rehber" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5M9 8h6M9 12h6"/></svg>Rehber</button>
+    <button role="tab" data-tab="portfoy" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h11v4"/><path d="M4 7v10a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H6a2 2 0 0 1-2-2Z"/><circle cx="16" cy="13.5" r="1"/></svg>Portföy</button>
   </nav>
   <main id="view"></main>
   <p class="foot">Pusula bir karar destek aracıdır. Puanlar geçmiş fiyat hareketi ve haber başlıklarındaki kelimelerden hesaplanır, geleceği tahmin etmez. Yatırım tavsiyesi değildir. Kaybetmeyi göze alabileceğiniz tutarla işlem yapın.</p>
@@ -723,9 +755,9 @@ function narrateStock(s, a, fmt) {
 }
 function buildStockWorld(stocks, news) {
   const items = [];
-  for (const k of ['us', 'bist']) (stocks.meta[k] || []).forEach((m, i) => {
+  for (const k of ['us', 'bist', 'eu']) (stocks.meta[k] || []).forEach((m, i) => {
     const lv = stocks[k] && stocks[k][m.s], h = stocks.hist && stocks.hist[k] && stocks.hist[k][m.s];
-    items.push({ id: k + ':' + m.s, kind: 'stock', mk: k, symbol: m.s, name: m.n, alias: m.al || [], sector: m.k, desc: m.d, dom: m.dom || '', rank: i + 1, cur: k === 'us' ? 'USD' : 'TRY', h, lv });
+    items.push({ id: k + ':' + m.s, kind: 'stock', mk: k, symbol: m.s, name: m.n, alias: m.al || [], sector: m.k, desc: m.d, dom: m.dom || '', rank: i + 1, cur: k === 'us' ? 'USD' : k === 'bist' ? 'TRY' : 'EUR', h, lv });
   });
   const ctx = newsContext(news, items);
   for (const it of items) {
@@ -760,6 +792,68 @@ function makeDemoStocks() {
   const live = (h) => Object.fromEntries(Object.entries(h).map(([k, v]) => [k, { p: v[v.length - 1], c: (v[v.length - 1] / v[v.length - 2] - 1) * 100 }]));
   return { updated: Date.now(), meta: { us: m(meta.us), bist: m(meta.bist) }, us: live(hist.us), bist: live(hist.bist), hist, ok: { midas: true, hist: true } };
 }
+/* ---- Portföy (saf hesaplar; arayüzden bağımsız) ---- */
+// Türkçe ya da İngilizce yazılmış sayıyı okur: "0,05", "0.05", "3.183.256,96". Boş ya da bozuksa null.
+function parseNumTr(s) {
+  s = String(s === null || s === undefined ? '' : s).trim().replace(/[\s₺$€]/g, '');
+  if (!s) return null;
+  if (s.includes(',') && s.includes('.')) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else if (s.includes(',')) s = s.replace(',', '.');
+  else if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '');
+  if (!/^\d*\.?\d+$|^\d+\.$/.test(s)) return null;
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+// Portföyü tek satırlık koda çevirir (bağlantıya ya da kopyala-yapıştır koduna konur).
+function portEncode(list) {
+  const rows = list.map((h) => [h.kind === 'coin' ? 'c' : 's', h.id, h.sym, h.name, h.qty, h.cost === undefined ? null : h.cost, h.ccy, h.src || '', h.est ? 1 : 0]);
+  return btoa(unescape(encodeURIComponent(JSON.stringify(rows)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function portDecode(code) {
+  try {
+    let t = String(code || '').trim();
+    const i = t.indexOf('#p='); if (i >= 0) t = t.slice(i + 3);
+    t = t.replace(/^kp1\./, '').replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+    while (t.length % 4) t += '=';
+    const rows = JSON.parse(decodeURIComponent(escape(atob(t))));
+    if (!Array.isArray(rows)) return null;
+    const out = [], stamp = Date.now().toString(36);
+    for (const r of rows.slice(0, 200)) {
+      if (!Array.isArray(r)) continue;
+      const [k, id, sym, name, qty, cost, ccy, src, est] = r;
+      if ((k !== 'c' && k !== 's') || typeof id !== 'string' || !id || !(typeof qty === 'number' && qty > 0 && isFinite(qty))) continue;
+      out.push({ u: 'h' + stamp + out.length, kind: k === 'c' ? 'coin' : 'stock', id: id.slice(0, 80), sym: String(sym || '').slice(0, 15), name: String(name || '').slice(0, 60), qty,
+        cost: typeof cost === 'number' && isFinite(cost) && cost >= 0 ? cost : null, ccy: ['TRY', 'USD', 'EUR'].includes(ccy) ? ccy : 'TRY', src: String(src || '').slice(0, 20), est: !!est });
+    }
+    return out;
+  } catch (e) { return null; }
+}
+// Tek bir varlık: değer, maliyet, kâr/zarar, günlük değişimin TL/$/€ karşılığı. Eksik veri null kalır, uydurulmaz.
+function portCalc(h, it) {
+  const cur = h.kind === 'coin' ? 'TRY' : (it && it.cur) || h.ccy || 'TRY';
+  const price = it && num(it.price) !== null ? it.price : null;
+  const value = price === null ? null : h.qty * price;
+  const cost = num(h.cost) === null ? null : h.qty * h.cost;
+  const pl = value !== null && cost !== null ? value - cost : null;
+  const plp = pl !== null && cost > 0 ? (pl / cost) * 100 : null;
+  const c24 = it ? num(it.c24) : null;
+  const day = value !== null && c24 !== null ? value - value / (1 + c24 / 100) : null;
+  return { cur, price, value, cost, pl, plp, day, c24 };
+}
+// Para birimine göre toplamlar (kur çevirmeden: TL, $ ve € ayrı ayrı gösterilir).
+function portSummary(rows) {
+  const g = {};
+  for (const r of rows) {
+    const x = g[r.c.cur] || (g[r.c.cur] = { cur: r.c.cur, value: 0, costKnown: 0, valueKnown: 0, day: 0, hasDay: false, n: 0, noCost: 0, noPrice: 0, parts: [] });
+    x.n++;
+    if (r.c.value === null) { x.noPrice++; continue; }
+    x.value += r.c.value; x.parts.push({ id: r.h.id, sym: r.h.sym, v: r.c.value });
+    if (r.c.day !== null) { x.day += r.c.day; x.hasDay = true; }
+    if (r.c.cost === null) x.noCost++; else { x.costKnown += r.c.cost; x.valueKnown += r.c.value; }
+  }
+  for (const x of Object.values(g)) { x.pl = x.costKnown > 0 ? x.valueKnown - x.costKnown : null; x.plp = x.costKnown > 0 ? (x.pl / x.costKnown) * 100 : null; }
+  return Object.values(g).sort((a, b) => (a.cur === 'TRY' ? -1 : 0) - (b.cur === 'TRY' ? -1 : 0) || b.n - a.n);
+}
 // ENGINE END
 
 /* ---------- Arayüz ---------- */
@@ -776,6 +870,7 @@ const S = {
   sitems: [], sinfo: null, sraw: null, smode: 'loading', supdated: 0, sstate: 'idle', sbusy: false, sloadedAt: 0,
   q: '', filter: 'hepsi', sort: 'mcap', mk: 'hepsi', shown: 40, sel: null,
   ex: null, canon: {}, rq: '', rshown: 30, ropen: null, rfilter: 'hepsi', bootP: null,
+  port: store.get('port', []), pcoins: {}, pat: 0, pfail: false, pimport: null, pimp: '', flash: '', ppick: null, psel: null, pdel: false,
 };
 const CUR_LOCALE = { usd: 'USD', try: 'TRY', eur: 'EUR' };
 function money(v, cur) {
@@ -784,7 +879,7 @@ function money(v, cur) {
   if (Math.abs(v) >= 1) { o.minimumFractionDigits = 2; o.maximumFractionDigits = 2; } else { o.maximumSignificantDigits = 4; }
   return new Intl.NumberFormat('tr-TR', o).format(v);
 }
-const big = (v) => (v ? new Intl.NumberFormat('tr-TR', { style: 'currency', currency: CUR_LOCALE[S.cur], notation: 'compact', maximumFractionDigits: 1 }).format(v) : '—');
+const big = (v, cur) => (v ? new Intl.NumberFormat('tr-TR', { style: 'currency', currency: cur || CUR_LOCALE[S.cur], notation: 'compact', maximumFractionDigits: 1 }).format(v) : '—');
 const pct = (v) => (num(v) === null ? '—' : fmtP(v));
 const cc = (v) => (num(v) === null ? '' : v >= 0 ? 'up' : 'dn');
 function ago(ms) {
@@ -815,13 +910,14 @@ function imgFail(el) {
 }
 window.imgFail = imgFail;
 const isStock = (it) => it.kind === 'stock';
-const pm = (it, v) => money(v, isStock(it) ? it.cur : undefined);
+const pm = (it, v) => money(v, isStock(it) ? it.cur : it.fx);
 const short = (it) => esc(String(it.symbol).slice(0, 3).toUpperCase());
 function avatar(it) {
   if (isStock(it)) return `<span class="av logo">${short(it)}${it.dom ? `<img src="${esc(favUrl(it.dom))}" data-d="${esc(it.dom)}" data-f="0" alt="" loading="lazy" onload="this.classList.add('ok')" onerror="imgFail(this)">` : ''}</span>`;
   return `<span class="av">${short(it)}<img src="${esc(it.image || iconUrl(it.symbol))}" data-s="${esc(String(it.symbol))}" data-f="${it.image ? '0' : '1'}" alt="" loading="lazy" onload="this.classList.add('ok')" onerror="imgFail(this)"></span>`;
 }
-const mkName = (it) => (it.mk === 'us' ? 'ABD' : 'BIST');
+const mkName = (it) => ({ us: 'ABD', bist: 'BIST', eu: 'Avrupa' }[it.mk] || '');
+const mkOrder = (it) => ({ bist: 0, us: 1000, eu: 2000 }[it.mk] ?? 3000);
 function row(it) {
   const sub = isStock(it) ? `${esc(it.symbol)} · ${mkName(it)}` : `<span class="rank num">#${it.rank ?? '–'}</span> ${esc(String(it.symbol).toUpperCase())}`;
   return `<button class="row" data-item="${esc(it.id)}">
@@ -836,7 +932,7 @@ function W() {
   if (S.kind === 'stock') return { st: true, items: S.sitems, info: S.sinfo, mode: S.smode, updated: S.supdated, ready: S.sstate === 'ready', news: S.sinfo ? S.sinfo.ctx.scored : [] };
   return { st: false, items: S.coins, info: S.info, mode: S.mode, updated: S.updated, ready: !!S.info, news: S.info ? S.info.ctx.scored : [] };
 }
-const byId = (id) => S.coins.find((c) => c.id === id) || S.sitems.find((c) => c.id === id);
+const byId = (id) => S.coins.find((c) => c.id === id) || S.sitems.find((c) => c.id === id) || S.pcoins[id] || null;
 function notReady(w) {
   if (w.st && S.sstate === 'error') return '<div class="empty">Hisse verisine ulaşılamadı.<br><button class="btn retry" id="stretry">Tekrar dene</button></div>';
   return `<div class="loading">${w.st ? 'Hisse verisi yükleniyor… İlk açılışta yarım dakika sürebilir.' : 'Piyasa taranıyor…'}</div>`;
@@ -914,13 +1010,13 @@ function filtered(w) {
   else if (f === 'fav') l = l.filter((c) => S.favs.includes(c.id));
   const key = {
     mcap: (c) => c.rank ?? 1e9,
-    rank: (c) => (c.mk === 'bist' ? 0 : 1000) + (c.rank ?? 999), // BIST önce, sonra ABD
+    rank: (c) => mkOrder(c) + (c.rank ?? 999), // BIST önce, sonra ABD, sonra Avrupa
     skor: (c) => (c.a.signal === 'VERİ YOK' ? 1e9 : -c.a.score),
     c24: (c) => -(c.c24 ?? -1e9), c7: (c) => -(c.c7 ?? -1e9), c30: (c) => -(c.c30 ?? -1e9), hacim: (c) => -(c.vol ?? 0),
   }[S.sort] || ((c) => c.rank ?? 1e9);
   return l.sort((a, b) => key(a) - key(b));
 }
-const mkChips = (attr) => [['hepsi', 'Hepsi'], ['bist', 'BIST'], ['us', 'ABD']].map(([k, t]) => `<button class="chip" data-${attr}="${k}" aria-pressed="${S.mk === k}">${t}</button>`).join('');
+const mkChips = (attr) => [['hepsi', 'Hepsi'], ['bist', 'BIST'], ['us', 'ABD'], ['eu', 'Avrupa']].map(([k, t]) => `<button class="chip" data-${attr}="${k}" aria-pressed="${S.mk === k}">${t}</button>`).join('');
 function viewPiyasa() {
   const w = W(); if (!w.ready) return notReady(w);
   const l = filtered(w);
@@ -937,7 +1033,7 @@ function viewPiyasa() {
 }
 
 /* ---------- Rehber ---------- */
-const stockUrl = (mk, sym) => 'https://www.getmidas.com/' + (mk === 'us' ? 'amerikan-borsasi' : 'canli-borsa') + '/' + encodeURIComponent(String(sym).toLowerCase()) + '-hisse/';
+const stockUrl = (mk, sym) => 'https://www.getmidas.com/' + (mk === 'bist' ? 'canli-borsa' : 'amerikan-borsasi') + '/' + encodeURIComponent(String(sym).toLowerCase()) + '-hisse/';
 const chevron = '<svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l5 5 5-5"/></svg>';
 const proseHtml = (n) => n.sec.map((x) => `<h4>${esc(x.h)}</h4>${x.p.map((t) => `<p>${esc(t)}</p>`).join('')}`).join('');
 const reasonsHtml = (a) => `<h4>Neden bu sinyal?</h4><ul class="why">${a.reasons.map((r) => `<li class="${r.pos === true ? 'p' : r.pos === false ? 'n' : ''}">${esc(r.t)}</li>`).join('')}</ul>`;
@@ -1003,7 +1099,7 @@ function viewRehber() {
   } else {
     let l = w.items.filter((c) => searchHit(c, q));
     if (S.mk !== 'hepsi') l = l.filter((c) => c.mk === S.mk);
-    l.sort((a, b) => (a.mk === 'bist' ? 0 : 1000) + a.rank - ((b.mk === 'bist' ? 0 : 1000) + b.rank));
+    l.sort((a, b) => mkOrder(a) + a.rank - (mkOrder(b) + b.rank));
     body = `<div class="chips">${mkChips('mk')}</div>
       <div class="bar"><input id="rq" type="search" placeholder="Hisse ara" value="${esc(S.rq)}" aria-label="Ara"></div>
       ${stockNotes()}
@@ -1017,8 +1113,15 @@ function viewHaber() {
   const w = W(); if (!w.ready) return notReady(w);
   return `<section class="panel"><h2>Haber akışı</h2><div class="sub" style="margin-bottom:6px">Nokta rengi başlığın tonunu gösterir: yeşil olumlu, kırmızı olumsuz, gri nötr. ${w.st ? 'Kaynaklar: Yahoo Finance, CNBC, MarketWatch, Bloomberg HT, AA.' : ''}</div>${newsList(w.news)}</section>`;
 }
+function renderImportBar() {
+  const n = S.pimport ? S.pimport.length : 0;
+  $('#importbar').innerHTML = S.pimport
+    ? `<div class="banner"><b>Portföy bağlantısı bulundu:</b> ${n} varlık.${S.port.length ? ' Bu cihazdaki portföyün yerine geçer.' : ''}<div class="imp-actions"><button class="btn primary" id="pimpgo">Portföyümü yükle</button><button class="btn" id="pimpno">Vazgeç</button></div></div>`
+    : S.flash ? `<div class="banner ok"><b>Tamam.</b> ${esc(S.flash)}</div>` : '';
+}
 function render() {
   const k = S.kind, choose = !k, w = W();
+  renderImportBar();
   document.documentElement.dataset.kind = k === 'stock' ? 'stock' : 'coin';
   $('#kinds').hidden = choose; $('.tabs').hidden = choose;
   $('#status').hidden = choose; $('#refresh').hidden = choose; $('#cur').hidden = k !== 'coin';
@@ -1029,7 +1132,7 @@ function render() {
   if (choose) { v.innerHTML = viewChoose(); $('#banner').innerHTML = ''; return; }
   const ae = document.activeElement, keepId = ae && (ae.id === 'q' || ae.id === 'rq') ? ae.id : null;
   const keep = keepId ? ae.selectionStart : null;
-  v.innerHTML = S.tab === 'pano' ? viewPano() : S.tab === 'piyasa' ? viewPiyasa() : S.tab === 'rehber' ? viewRehber() : viewHaber();
+  v.innerHTML = S.tab === 'pano' ? viewPano() : S.tab === 'piyasa' ? viewPiyasa() : S.tab === 'rehber' ? viewRehber() : S.tab === 'portfoy' ? viewPortfoy() : viewHaber();
   if (keep !== null) { const q = $('#' + keepId); if (q) { q.focus(); q.setSelectionRange(keep, keep); } }
   const st = $('#status'), mode = w.mode;
   st.className = 'pill ' + (mode === 'live' && w.ready ? 'live' : mode === 'demo' ? 'demo' : '');
@@ -1037,6 +1140,147 @@ function render() {
   $('#banner').innerHTML = mode === 'demo'
     ? `<div class="banner"><b>Örnek veri gösteriliyor.</b> Canlı fiyat ve haber akışı için uygulamanın sunucu kısmının çalışması gerekir (README dosyasına bakın). Aşağıdaki fiyatlar ve haberler gerçek değildir, yalnızca arayüzü göstermek içindir.</div>` : '';
 }
+
+/* ---------- Portföy ---------- */
+const COLORS = ['#14b8a6', '#f59e0b', '#6366f1', '#ec4899', '#22c55e', '#0ea5e9', '#a855f7', '#ef4444'];
+const sgn = (v, cur) => (v >= 0 ? '+' : '−') + money(Math.abs(v), cur);
+const tcls = (v) => (v >= 0 ? 't-up' : 't-dn');
+const fmtQty = (q) => new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 8 }).format(q);
+const inNum = (n) => (n === null || n === undefined ? '' : n.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 10 }).replace('.', ','));
+const portCode = () => 'kp1.' + portEncode(S.port);
+const savePort = () => store.set('port', S.port);
+function holdItem(h) { return h.kind === 'coin' ? S.pcoins[h.id] || null : S.sitems.find((x) => x.id === h.id) || null; }
+async function loadPortCoins() {
+  S.pat = Date.now();
+  const hs = S.port.filter((h) => h.kind === 'coin');
+  if (!hs.length) { S.pcoins = {}; return; }
+  try {
+    if (S.mode === 'demo') { S.pcoins = {}; for (const h of hs) { const c = S.coins.find((x) => x.id === h.id); if (c) S.pcoins[h.id] = c; } return; }
+    const uniq = [...new Map(hs.map((h) => [h.id, h])).values()];
+    const j = await getJson('/api/coins?vs=try&' + uniq.map((h) => 'c=' + encodeURIComponent([h.id, h.sym, h.name].join('|'))).join('&'), 20000);
+    const coins = (j && j.coins) || [], ctx = newsContext(S.news, coins);
+    S.pcoins = {};
+    for (const c of coins) { c.a = analyze(c, ctx); c.fx = 'TRY'; S.pcoins[c.req || c.id] = c; }
+    S.pfail = false;
+  } catch (e) { S.pfail = true; }
+}
+function ensurePort() {
+  if (S.kind === 'coin' && S.mode !== 'loading' && S.port.some((h) => h.kind === 'coin') && Date.now() - S.pat > 120000) loadPortCoins().then(render);
+}
+function allocHtml(g) {
+  const m = new Map();
+  for (const p of g.parts) { const o = m.get(p.id); m.set(p.id, { sym: p.sym, v: (o ? o.v : 0) + p.v }); }
+  let l = [...m.values()].sort((a, b) => b.v - a.v);
+  if (l.length < 2) return '';
+  if (l.length > 7) l = [...l.slice(0, 6), { sym: 'Diğer', v: l.slice(6).reduce((s, x) => s + x.v, 0) }];
+  const tot = l.reduce((s, x) => s + x.v, 0), nm = (x) => (x.sym === 'Diğer' ? 'Diğer' : String(x.sym).toUpperCase());
+  return `<div class="alloc" role="img" aria-label="Portföy dağılımı">${l.map((x, i) => `<span style="flex:${x.v / tot};background:${COLORS[i]}" title="${esc(nm(x))}"></span>`).join('')}</div>
+    <div class="legend">${l.map((x, i) => `<span><i style="background:${COLORS[i]}"></i>${esc(nm(x))} %${(x.v / tot * 100).toFixed(x.v / tot < 0.1 ? 1 : 0).replace('.', ',')}</span>`).join('')}</div>`;
+}
+function groupHtml(g, multi) {
+  const plTxt = g.pl !== null
+    ? `<span>Toplam kâr/zarar <b class="num ${tcls(g.pl)}">${sgn(g.pl, g.cur)} (${pct(g.plp)})</b></span>`
+    : '<span class="sub">Maliyet girilmediği için kâr/zarar hesaplanamadı.</span>';
+  return `<div class="pfg"><div class="sub">Toplam değer${multi ? ' · ' + g.cur : ''}</div><div class="pf-total">${money(g.value, g.cur)}</div>
+    <div class="pf-line">${g.hasDay ? `<span>Bugün <b class="num ${tcls(g.day)}">${sgn(g.day, g.cur)}</b></span>` : ''}${plTxt}</div>
+    ${g.noCost && g.pl !== null ? `<div class="sub" style="margin-top:4px">${g.noCost} varlığın maliyeti girilmemiş; kâr/zarar yalnızca maliyeti bilinenler için.</div>` : ''}
+    ${g.noPrice ? `<div class="sub" style="margin-top:4px">${g.noPrice} varlığın güncel fiyatı alınamadı, toplama katılmadı.</div>` : ''}${allocHtml(g)}</div>`;
+}
+function portNote(r) {
+  const a = r.it && r.it.a; if (!a) return '';
+  if (a.signal === 'SAT' || a.signal === 'AZALT') { const why = (a.reasons.find((x) => x.pos === false) || {}).t; return `<div class="pnote"><b>Dikkat: ${a.signal}.</b> ${esc(why || 'Trend zayıf.')}</div>`; }
+  if (a.hot) return '<div class="pnote"><b>Dikkat:</b> aşırı ısınmış görünüyor; yeni alım için beklemek daha güvenli olabilir.</div>';
+  return '';
+}
+function prow(r) {
+  const { h, it, c } = r, sym = String(h.sym).toUpperCase();
+  const sub = `${h.est ? '≈' : ''}${fmtQty(h.qty)} ${esc(sym)}${h.src ? ' · ' + esc(h.src) : ''}`;
+  if (!it) return `<button class="row prow" data-pedit="${esc(h.u)}"><span class="who"><span class="av">${esc(sym.slice(0, 3))}</span><span class="nm"><b>${esc(h.name)}</b><span>${sub}</span></span></span>
+    <span class="px"><span class="num">—</span><span class="chg">fiyat yok</span></span><span class="sp"></span><span class="sig s-stable">VERİ YOK</span></button>`;
+  const pl = c.pl !== null ? `<span class="chg num ${cc(c.pl)}">${sgn(c.pl, c.cur)} (${pct(c.plp)})</span>` : `<span class="chg num">${c.c24 !== null ? 'bugün ' + pct(c.c24) : 'maliyet yok'}</span>`;
+  return `<button class="row prow" data-pedit="${esc(h.u)}"><span class="who">${avatar(it)}<span class="nm"><b>${esc(h.name)}</b><span>${sub}</span></span></span>
+    <span class="px"><span class="num">${money(c.value, c.cur)}</span>${pl}</span><span class="sp">${sparkSvg(it.spark)}</span><span class="sig ${it.a.cls}">${it.a.signal}</span></button>`;
+}
+function viewPortfoy() {
+  const w = W(); if (!w.ready) return notReady(w);
+  const kind = w.st ? 'stock' : 'coin';
+  const rows = S.port.filter((h) => h.kind === kind).map((h) => { const it = holdItem(h); return { h, it, c: portCalc(h, it) }; });
+  const head = `<div class="pf-head"><h2>Portföyüm</h2><button class="btn primary" id="padd">+ Ekle</button></div>`;
+  const fail = S.pfail && !w.st ? '<p class="rnote warn">Güncel coin fiyatları alınamadı; yeniden denenecek.</p>' : '';
+  let body;
+  if (!rows.length) {
+    body = `<section class="panel"><div class="empty">${w.st ? 'Henüz hisse eklemedin.' : 'Henüz coin eklemedin.'}<br>"Ekle" düğmesiyle elindeki miktarı girersen değerini, kâr/zararını ve sinyalini burada görürsün.${S.mode === 'demo' ? '<br><button class="btn retry" id="pdemo">Örnek portföyle dene</button>' : ''}</div></section>`;
+  } else {
+    const groups = portSummary(rows), warns = rows.filter((r) => portNote(r)).length;
+    const status = warns ? `⚠ ${warns} varlıkta uyarı var (aşağıda işaretli).` : rows.some((r) => r.it) ? '✓ Elindeki varlıkların hiçbiri Sat/Azalt sinyali vermiyor.' : '';
+    rows.sort((a, b) => (b.c.value ?? -1) - (a.c.value ?? -1));
+    body = `<section class="panel">${groups.map((g) => groupHtml(g, groups.length > 1)).join('')}<div class="sub" style="margin-top:12px">${status}</div></section>
+      <section class="panel" style="margin-top:14px"><div class="rows">${rows.map((r) => prow(r) + portNote(r)).join('')}</div>
+      <p class="rnote" style="margin:10px 0 0">Bir satıra basarak miktarı ve maliyeti düzeltebilir ya da silebilirsin. ${w.st ? 'Fiyatlar Midas\'tan (gecikmeli olabilir) ya da son kapanıştan gelir.' : 'Coin değerleri TL cinsindendir.'}</p></section>`;
+  }
+  const backup = `<section class="panel pbackup" style="margin-top:14px"><h2>Yedekle ve başka cihaza aktar</h2>
+    <p class="sub" style="margin:0">Portföyün yalnızca bu cihazda saklanır, hiçbir sunucuya gönderilmez. Başka bir telefona ya da bilgisayara taşımak için kodu kopyala, orada aşağıdaki kutuya yapıştır.</p>
+    <div class="pfform">${S.port.length ? `<label>Portföy kodun (coin ve hisse birlikte)<textarea readonly id="pcode" rows="3">${esc(portCode())}</textarea></label><div class="acts"><button class="btn" id="pcopy">Kodu kopyala</button></div>` : ''}
+    <label>Başka cihazdan gelen kodu yapıştır<textarea id="pimp" rows="3" placeholder="kp1. ile başlayan kod">${esc(S.pimp)}</textarea></label>
+    <div class="acts"><button class="btn" id="pdoimp">İçe aktar</button></div><div class="err" id="pimperr"></div>
+    <span class="hint">İçe aktarınca bu cihazdaki portföy kodla değiştirilir.</span></div></section>`;
+  return head + fail + body + backup;
+}
+function showSheet(html, label) {
+  $('#sheet').setAttribute('aria-label', label); $('#sheet').innerHTML = html; $('#scrim').hidden = false; S.sel = null;
+}
+const srcOpts = (cur) => ['Binance', 'Midas', 'Diğer'].map((s) => `<option${s === cur ? ' selected' : ''}>${s}</option>`).join('');
+function formHtml(it, h) {
+  const stk = isStock(it), cur = stk ? it.cur : 'TRY', sym = String(stk ? it.symbol : it.symbol).toUpperCase();
+  return `<div class="who" style="margin-top:6px">${avatar(it)}<span class="nm"><b>${esc(it.name)}</b><span>${esc(sym)}${h ? '' : ' · ' + money(it.price, cur)}</span></span></div>
+    <div class="pfform">
+      <label>Miktar (kaç ${stk ? 'adet hisse' : esc(sym)})<input id="pqty" inputmode="decimal" autocomplete="off" placeholder="örn. 0,05" value="${h ? esc(inNum(h.qty)) : ''}"><span class="hint" id="pqprev"></span></label>
+      <label>Ortalama alış fiyatı, tane başına (${cur === 'TRY' ? '₺' : cur === 'USD' ? '$' : '€'}) · boş bırakılabilir<input id="pcost" inputmode="decimal" autocomplete="off" placeholder="bilmiyorsan boş bırak" value="${h ? esc(inNum(h.cost)) : ''}"><span class="hint" id="pcprev"></span></label>
+      <label>Nerede tutuyorsun<select id="psrc">${srcOpts(h ? h.src : stk ? 'Midas' : 'Binance')}</select></label>
+      ${h && h.est ? '<div class="hint">Bu miktar yaklaşık: ekranda miktar görünmediği için fiyattan hesaplandı. Kesin miktarı bilirsen düzelt.</div>' : ''}
+      <div class="err" id="perr"></div>
+      <div class="acts"><button class="btn primary" id="${h ? 'pupd' : 'psave'}">Kaydet</button>${h ? `<button class="btn" id="pdet">Ayrıntıları aç</button><button class="btn danger" id="pdel">Sil</button>` : ''}</div>
+    </div>`;
+}
+function openPortAdd() {
+  const w = W(); S.ppick = null; S.psel = null; S.pdel = false;
+  showSheet(`<div class="sh-head"><span class="nm"><h3>Portföye ekle</h3><span>${w.st ? 'Hisse' : 'Coin'} seç</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
+    <div class="bar"><input id="pq" type="search" autocomplete="off" placeholder="${w.st ? 'Hisse ara (ör. thy, apple)' : 'Coin ara (ör. bitcoin, xrp)'}" aria-label="Ara"></div><div id="pres" class="rows"></div><div id="pform"></div>
+    ${w.st ? '' : '<p class="rnote">Yalnızca piyasa değerine göre ilk 500 coin aranabilir. Listede olmayan bir coini eklemek istersen bana söyle.</p>'}`, 'Portföye ekle');
+  fillPres(); $('#pq').focus();
+}
+function fillPres() {
+  const w = W(), q = ($('#pq').value || '').trim().toLowerCase();
+  const l = (q ? w.items.filter((c) => searchHit(c, q)) : w.items).slice(0, 8);
+  $('#pres').innerHTML = l.length ? l.map((c) => row(c).replace('data-item=', 'data-ppick=')).join('') : '<div class="empty">Sonuç yok.</div>';
+}
+function pickItem(id) {
+  const it = byId(id); if (!it) return;
+  S.ppick = id; $('#pres').innerHTML = ''; $('#pq').closest('.bar').hidden = true; $('#pform').innerHTML = formHtml(it, null); $('#pqty').focus();
+}
+function openPortEdit(u) {
+  const h = S.port.find((x) => x.u === u); if (!h) return;
+  const it = holdItem(h) || { kind: h.kind === 'stock' ? 'stock' : undefined, name: h.name, symbol: h.sym, price: null, cur: h.ccy, image: '', dom: '' };
+  S.psel = u; S.pdel = false;
+  showSheet(`<div class="sh-head"><span class="nm"><h3>${esc(h.name)}</h3><span>Portföy kaydı${h.src ? ' · ' + esc(h.src) : ''}</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>${formHtml(it, h)}`, 'Portföy kaydı');
+}
+function readForm() {
+  const qty = parseNumTr($('#pqty').value), cost = parseNumTr($('#pcost').value);
+  if (!(qty > 0)) { $('#perr').textContent = 'Miktarı yaz (0\'dan büyük bir sayı). Ondalık için virgül kullanabilirsin.'; return null; }
+  if ($('#pcost').value.trim() && cost === null) { $('#perr').textContent = 'Maliyeti sayı olarak yaz ya da boş bırak.'; return null; }
+  return { qty, cost, src: $('#psrc').value };
+}
+function afterPortChange() {
+  savePort(); closeSheet();
+  loadPortCoins().then(render); render();
+}
+function importPort(list) {
+  S.port = list; savePort(); S.pcoins = {};
+  S.flash = list.length + ' varlık yüklendi. Coin ya da Hisse tarafında Portföy sekmesine bak.';
+  loadPortCoins().then(render); render();
+}
+const DEMO_PORT = [['c', 'bitcoin', 'btc', 'Bitcoin', 0.02, 50000, 'TRY', 'Binance', 0], ['c', 'ethereum', 'eth', 'Ethereum', 0.5, 2000, 'TRY', 'Binance', 0], ['c', 'ripple', 'xrp', 'XRP', 300, null, 'TRY', 'Midas', 0],
+  ['s', 'bist:THYAO', 'THYAO', 'Türk Hava Yolları', 2, 250, 'TRY', 'Midas', 0], ['s', 'bist:ASELS', 'ASELS', 'Aselsan', 10, 100, 'TRY', 'Midas', 0], ['s', 'us:AAPL', 'AAPL', 'Apple', 3, 170, 'USD', 'Midas', 0]];
 
 /* ---------- Detay paneli ---------- */
 function openSheet(id) {
@@ -1051,8 +1295,8 @@ function openSheet(id) {
   const sub = stk ? `${esc(c.symbol)} · ${mkName(c)} · ${esc(c.sector)}` : `#${c.rank ?? '–'} · ${esc(String(c.symbol).toUpperCase())}`;
   const chgs = stk ? [['Günlük', c.c24], ['5 gün', c.c7], ['1 ay', c.c30], ['3 ay', st ? st.c63 : null]] : [['1 sa', c.c1h], ['24 sa', c.c24], ['7 gün', c.c7], ['30 gün', c.c30]];
   const metrics = stk
-    ? metric('Sektör', esc(c.sector), true) + metric('Borsa', c.mk === 'us' ? 'ABD' : 'Borsa İstanbul', true) + metric('RSI (14 gün)', st && st.rsi !== null ? st.rsi.toFixed(0) : '—') + metric('Günlük oynaklık', st ? '%' + f1(st.vol) : '—') + metric('Zirveden uzaklık', st ? pct(st.dd, 0) : '—') + metric('Fiyat kaynağı', c.live ? 'Midas' : 'Son kapanış', true)
-    : metric('Piyasa değeri', big(c.mcap)) + metric('24 sa hacim', big(c.vol)) + metric('Hacim / değer', a.liq ? '%' + f1(a.liq * 100) : '—') + metric('Zirveden uzaklık', num(c.ath) === null ? '—' : pct(c.ath, 0)) + metric('RSI (7 gün)', st && st.rsi !== null ? st.rsi.toFixed(0) : '—') + metric('Günlük oynaklık', st ? '%' + f1(st.vol) : '—');
+    ? metric('Sektör', esc(c.sector), true) + metric('Borsa', { us: 'ABD', bist: 'Borsa İstanbul', eu: 'Avrupa' }[c.mk], true) + metric('RSI (14 gün)', st && st.rsi !== null ? st.rsi.toFixed(0) : '—') + metric('Günlük oynaklık', st ? '%' + f1(st.vol) : '—') + metric('Zirveden uzaklık', st ? pct(st.dd, 0) : '—') + metric('Fiyat kaynağı', c.live ? 'Midas' : 'Son kapanış', true)
+    : metric('Piyasa değeri', big(c.mcap, c.fx)) + metric('24 sa hacim', big(c.vol, c.fx)) + metric('Hacim / değer', a.liq ? '%' + f1(a.liq * 100) : '—') + metric('Zirveden uzaklık', num(c.ath) === null ? '—' : pct(c.ath, 0)) + metric('RSI (7 gün)', st && st.rsi !== null ? st.rsi.toFixed(0) : '—') + metric('Günlük oynaklık', st ? '%' + f1(st.vol) : '—');
   $('#sheet').setAttribute('aria-label', stk ? 'Hisse ayrıntısı' : 'Coin ayrıntısı');
   $('#sheet').innerHTML = `
     <div class="sh-head">${avatar(c)}<span class="nm"><h3>${esc(c.name)}</h3><span>${sub}</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
@@ -1099,6 +1343,7 @@ async function load(manual) {
   render();
   if (S.sel) openSheet(S.sel);
   loadEx().then(() => { render(); if (S.sel) openSheet(S.sel); });
+  if (S.port.some((h) => h.kind === 'coin')) loadPortCoins().then(() => { if ($('#scrim').hidden) render(); });
 }
 async function loadStockWorld(manual) {
   if (S.sbusy) return;
@@ -1129,13 +1374,16 @@ function setKind(k) {
   render(); window.scrollTo(0, 0);
   if (k === 'stock' && (S.sstate === 'idle' || S.sstate === 'error' || Date.now() - S.sloadedAt > 120000)) loadStockWorld();
   else if (k === 'coin' && S.mode !== 'loading' && Date.now() - S.loadedAt > 120000) load();
+  if (k === 'coin') ensurePort();
 }
 
 /* ---------- Olaylar ---------- */
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .scrim'); if (!t) return;
   if (t.dataset.kind) setKind(t.dataset.kind === 'choose' ? null : t.dataset.kind);
-  else if (t.dataset.tab) { S.tab = t.dataset.tab; render(); window.scrollTo(0, 0); }
+  else if (t.dataset.tab) { S.tab = t.dataset.tab; render(); window.scrollTo(0, 0); if (S.tab === 'portfoy') ensurePort(); }
+  else if (t.dataset.ppick) pickItem(t.dataset.ppick)
+  else if (t.dataset.pedit) openPortEdit(t.dataset.pedit)
   else if (t.dataset.item) openSheet(t.dataset.item);
   else if (t.dataset.filter) { S.filter = t.dataset.filter; S.shown = 40; render(); }
   else if (t.dataset.mk) { S.mk = t.dataset.mk; S.shown = 40; S.rshown = 30; S.ropen = null; render(); }
@@ -1146,18 +1394,62 @@ document.addEventListener('click', (e) => {
   else if (t.dataset.rf) { S.rfilter = t.dataset.rf; S.rshown = 30; S.ropen = null; render(); }
   else if (t.id === 'close' || (t.id === 'scrim' && e.target === t)) closeSheet();
   else if (t.id === 'refresh') { if (S.kind === 'stock') loadStockWorld(true); else load(true); }
+  else if (t.id === 'padd') openPortAdd();
+  else if (t.id === 'psave' || t.id === 'pupd') {
+    const f = readForm(); if (!f) return;
+    if (t.id === 'psave') {
+      const it = byId(S.ppick); if (!it) return;
+      const stk = isStock(it);
+      S.port.push({ u: 'h' + Date.now().toString(36) + S.port.length, kind: stk ? 'stock' : 'coin', id: it.id, sym: String(it.symbol), name: it.name, qty: f.qty, cost: f.cost, ccy: stk ? it.cur : 'TRY', src: f.src, est: false });
+    } else {
+      const h = S.port.find((x) => x.u === S.psel); if (!h) return;
+      if (f.qty !== h.qty) h.est = false;
+      Object.assign(h, { qty: f.qty, cost: f.cost, src: f.src });
+    }
+    afterPortChange();
+  }
+  else if (t.id === 'pdel') {
+    if (!S.pdel) { S.pdel = true; t.textContent = 'Emin misin? Evet, sil'; return; }
+    S.port = S.port.filter((x) => x.u !== S.psel); afterPortChange();
+  }
+  else if (t.id === 'pdet') { const h = S.port.find((x) => x.u === S.psel); if (h && byId(h.id)) openSheet(h.id); }
+  else if (t.id === 'pcopy') {
+    const ta = $('#pcode'); ta.select();
+    const done = () => { t.textContent = 'Kopyalandı ✓'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, () => { try { document.execCommand('copy'); done(); } catch (e) {} });
+    else { try { document.execCommand('copy'); done(); } catch (e) {} }
+  }
+  else if (t.id === 'pdoimp') {
+    const list = portDecode(S.pimp);
+    if (!list || !list.length) { $('#pimperr').textContent = 'Kod okunamadı. Kopyalarken eksik kalmış olabilir; baştan sona seçip tekrar dene.'; return; }
+    S.pimp = ''; importPort(list);
+  }
+  else if (t.id === 'pimpgo') { const l = S.pimport; S.pimport = null; try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} importPort(l); }
+  else if (t.id === 'pimpno') { S.pimport = null; try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} render(); }
+  else if (t.id === 'pdemo') { importPort(DEMO_PORT.map((r, i) => ({ u: 'd' + i, kind: r[0] === 'c' ? 'coin' : 'stock', id: r[1], sym: r[2], name: r[3], qty: r[4], cost: r[5], ccy: r[6], src: r[7], est: false }))); S.flash = 'Örnek portföy yüklendi (gerçek değil).'; render(); }
   else if (t.id === 'fav') {
     S.favs = S.favs.includes(S.sel) ? S.favs.filter((x) => x !== S.sel) : [...S.favs, S.sel];
     store.set('favs', S.favs); openSheet(S.sel); render();
   }
 });
-document.addEventListener('input', (e) => { if (e.target.id === 'q') { S.q = e.target.value; S.shown = 40; render(); } else if (e.target.id === 'rq') { S.rq = e.target.value; S.rshown = 30; render(); } });
+document.addEventListener('input', (e) => {
+  const id = e.target.id;
+  if (id === 'pq') { fillPres(); return; }
+  if (id === 'pimp') { S.pimp = e.target.value; return; }
+  if (id === 'pqty' || id === 'pcost') {
+    const v = parseNumTr(e.target.value), el = $(id === 'pqty' ? '#pqprev' : '#pcprev');
+    if (el) el.textContent = e.target.value.trim() === '' ? '' : v === null ? 'Sayı olarak okunamadı' : '= ' + fmtQty(v);
+    return;
+  }
+  if (e.target.id === 'q') { S.q = e.target.value; S.shown = 40; render(); } else if (e.target.id === 'rq') { S.rq = e.target.value; S.rshown = 30; render(); }
+});
 document.addEventListener('change', (e) => {
   if (e.target.id === 'sort') { S.sort = e.target.value; render(); }
   else if (e.target.id === 'cur') { S.cur = e.target.value; store.set('cur', S.cur); load(); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#scrim').hidden) closeSheet(); });
 $('#cur').value = S.cur;
+try { if (/^#p=/.test(location.hash)) { const l = portDecode(location.hash); if (l && l.length) S.pimport = l; } } catch (e) {}
 render();
 S.bootP = load();
 setInterval(() => {

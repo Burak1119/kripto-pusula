@@ -52,10 +52,25 @@ const BIST = [
   ['ENKAI', 'Enka İnşaat', 'İnşaat / Enerji', 'Büyük altyapı projeleri üstlenen inşaat ve enerji şirketi.'],
   ['ASTOR', 'Astor Enerji', 'Enerji ekipmanı', 'Trafo ve elektrik dağıtım ekipmanı üreticisi.'],
 ];
-const meta = () => ({
-  us: US.map(([s, n, k, d]) => ({ s, n, k, d })),
-  bist: BIST.map(([s, n, k, d]) => ({ s, n, k, d })),
-});
+// Logo için şirket sitesi alanı ve haber eşleştirmede kullanılacak takma adlar
+const DOM = {
+  AAPL: 'apple.com', MSFT: 'microsoft.com', NVDA: 'nvidia.com', TSLA: 'tesla.com', AMZN: 'amazon.com', GOOGL: 'google.com', META: 'meta.com',
+  AMD: 'amd.com', NFLX: 'netflix.com', MSTR: 'microstrategy.com', COIN: 'coinbase.com', UBER: 'uber.com', WMT: 'walmart.com', DIS: 'disney.com',
+  KO: 'coca-colacompany.com', JPM: 'jpmorganchase.com', V: 'visa.com', PLTR: 'palantir.com', INTC: 'intel.com', BA: 'boeing.com',
+  THYAO: 'turkishairlines.com', ASELS: 'aselsan.com', BIMAS: 'bim.com.tr', KCHOL: 'koc.com.tr', GARAN: 'garantibbva.com.tr', AKBNK: 'akbank.com',
+  ISCTR: 'isbank.com.tr', YKBNK: 'yapikredi.com.tr', EREGL: 'erdemir.com.tr', TUPRS: 'tupras.com.tr', SASA: 'sasa.com.tr', FROTO: 'fordotosan.com.tr',
+  TOASO: 'tofas.com.tr', SISE: 'sisecam.com.tr', PGSUS: 'flypgs.com', TCELL: 'turkcell.com.tr', ARCLK: 'arcelikglobal.com', PETKM: 'petkim.com.tr',
+  KRDMD: 'kardemir.com', HEKTS: 'hektas.com.tr', EKGYO: 'emlakkonut.com.tr', KOZAL: 'kozaaltin.com.tr', ENKAI: 'enka.com', ASTOR: 'astor.com.tr',
+};
+const AL = {
+  GOOGL: ['Google'], META: ['Facebook'], MSTR: ['Strategy'], THYAO: ['Turkish Airlines', 'THY'], ASELS: ['Aselsan'], BIMAS: ['BIM'],
+  KCHOL: ['Koc Holding'], GARAN: ['Garanti'], ISCTR: ['Isbank', 'İş Bankası'], YKBNK: ['Yapi Kredi'], EREGL: ['Eregli'], TUPRS: ['Tupras'],
+  FROTO: ['Ford Otosan'], TOASO: ['Tofas'], SISE: ['Sisecam'], ARCLK: ['Arcelik'], PGSUS: ['Pegasus'],
+};
+const meta = () => {
+  const f = ([s, n, k, d]) => ({ s, n, k, d, dom: DOM[s] || '', al: AL[s] || [] });
+  return { us: US.map(f), bist: BIST.map(f) };
+};
 
 const strip = (h) => h.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const trNum = (s) => { const n = Number(String(s).replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : null; };

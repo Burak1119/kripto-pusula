@@ -5,7 +5,7 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
-const routes = { '/api/coins': require('./api/coins'), '/api/news': require('./api/news'), '/api/exchanges': require('./api/exchanges') };
+const routes = { '/api/coins': require('./api/coins'), '/api/news': require('./api/news'), '/api/exchanges': require('./api/exchanges'), '/api/stocks': require('./api/stocks') };
 const types = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json',
   '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml',

@@ -73,5 +73,19 @@ const E2 = new Function(code + '; return { analyze, analyzeAll, makeDemo, narrat
   const as = E2.analyzeStock(spike, 25);
   ok(as.hot && as.signal !== 'AL' && as.signal !== 'GÜÇLÜ AL', 'bir günde %25 sıçrayan hisse Al almıyor (' + as.signal + ')');
 }
+// Hisse dünyası: Coin ve Hisse ayrı listeler, hisse haberleri şirketlerle eşleşiyor
+const E3 = new Function(code + '; return { buildStockWorld, makeDemoStocks, makeDemoStockNews, analyzeAll, makeDemo };')();
+{
+  const raw = E3.makeDemoStocks(), news = E3.makeDemoStockNews();
+  const w = E3.buildStockWorld(raw, news);
+  ok(w.items.length === 6 && w.items.every((x) => x.kind === 'stock' && x.id.includes(':') && x.a && x.cur), 'hisse dünyası: 6 öğe, hepsi hisse, kimlikleri "pazar:sembol"');
+  ok(w.items.every((x) => x.dom), 'her hissenin logo alan adı var');
+  ok(w.items.some((x) => x.a.hits.length > 0), 'hisse haberleri şirketlerle eşleşti');
+  ok(w.info.analyzed === 6 && typeof w.info.mood === 'string', 'hisse ruh hali hesaplandı (' + w.info.mood + ')');
+  const dc = E3.makeDemo(); E3.analyzeAll(dc.coins, dc.news);
+  ok(dc.coins.every((c) => !c.kind) && !w.items.some((x) => dc.coins.some((c) => c.id === x.id)), 'coin ve hisse kimlikleri karışmıyor');
+  const w2 = E3.buildStockWorld({ meta: raw.meta, us: {}, bist: {}, hist: {}, ok: { midas: false, hist: false } }, []);
+  ok(w2.items.length === 6 && w2.items.every((x) => x.a.signal === 'VERİ YOK' && x.price === null) && w2.info.analyzed === 0, 'hiç veri yokken de çökmüyor, "VERİ YOK" gösteriyor');
+}
 console.log(fail ? `\n${fail} test başarısız` : '\nTüm testler geçti (rehber dahil)');
 process.exit(fail ? 1 : 0);

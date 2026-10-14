@@ -1136,7 +1136,7 @@ const FX_GOLD = [
   ['fx:18', '18 ayar altın', '18 ayar', 0.75, '18', 'gram 18 ayar altın', '1 gram · 18 ayar'],
   ['fx:14', '14 ayar altın', '14 ayar', 0.585, '14', 'gram 14 ayar altın', '1 gram · 14 ayar'],
 ];
-// hr: Harem Altın satış/alış fiyatları { 'fx:gold': { alis, satis } } (ons dolar cinsinden). Hesaplanan değerden %10'dan fazla ayrışanlar (hatalı ayrıştırma) kullanılmaz.
+// hr: dış kaynaktan (Trunçgil Finans) altın satış/alış fiyatları { 'fx:gold': { alis, satis } } (ons dolar cinsinden). Hesaplanan değerden %10'dan fazla ayrışanlar (hatalı ayrıştırma) kullanılmaz.
 function fxTable(usd, eur, ozUsd, chg, hr) {
   const out = [], mk = (id, name, symbol, price, c24, x) => {
     const h = hr && hr[id], k = id === 'fx:ons' ? usd : 1;
@@ -1632,7 +1632,7 @@ function viewFxPiyasa() {
       <span class="who">${avatar(it)}<span class="nm"><b>${esc(it.name)}</b><span>${esc(it.sub || '')}</span></span></span>
       <span class="px"><span class="num">${money(it.price, 'TRY')}</span>${num(it.c24) !== null ? `<span class="chg num ${cc(it.c24)}">${pct(it.c24)}</span>` : '<span class="chg">—</span>'}</span></button>`).join('')}</div>`;
   return `${cvPanel()}${gl.length ? `<section class="panel"><h2>Altın</h2>${rows(gl)}<div class="sub" style="margin-top:8px">Ons altın: <b class="num">${money(S.gold.usdOz, 'USD')}</b></div>
-      <p class="rnote" style="margin:8px 0 0">${gl.some((x) => x.src === 'harem') ? 'Fiyatlar <b>Harem Altın</b> satış fiyatıdır (yaklaşık 1-2 dakika gecikmeyle); sitede olmayan kalemler saf altın değerinden hesaplanır.' : 'Fiyatlar saf altın değeri üzerinden yaklaşık hesaplanır (çeyrek, yarım, tam ve Ata için 22 ayar gramajıyla). Kuyumcu ve banka fiyatları işçilik ve alış-satış farkı yüzünden genelde yüzde birkaç farklı olur.'}</p></section>` : '<section class="panel"><div class="empty">Altın fiyatı şu an alınamadı.</div></section>'}
+      <p class="rnote" style="margin:8px 0 0">${gl.some((x) => x.src === 'harem') ? 'Fiyatlar <b>Trunçgil Finans</b> verisindeki satış fiyatıdır (birkaç dakika gecikmeyle olabilir); akışta olmayan kalemler saf altın değerinden hesaplanır.' : 'Fiyatlar saf altın değeri üzerinden yaklaşık hesaplanır (çeyrek, yarım, tam ve Ata için 22 ayar gramajıyla). Kuyumcu ve banka fiyatları işçilik ve alış-satış farkı yüzünden genelde yüzde birkaç farklı olur.'}</p></section>` : '<section class="panel"><div class="empty">Altın fiyatı şu an alınamadı.</div></section>'}
     <section class="panel" style="margin-top:14px"><h2>Döviz</h2>${rows(dl)}${parity ? `<div class="sub" style="margin-top:8px">EUR/USD: <b class="num">${parity.toFixed(4).replace('.', ',')}</b></div>` : ''}
     <p class="rnote" style="margin:8px 0 0">Kurlar uluslararası piyasa kurudur; banka ve döviz bürosu fiyatından biraz farklı olabilir. Satıra basınca saatlik, günlük, haftalık, aylık ve yıllık grafik açılır. Bu bölümde al-sat sinyali verilmez.</p></section>`;
 }
@@ -1646,7 +1646,7 @@ function openFxSheet(c) {
   $('#sheet').setAttribute('aria-label', c.name + ' ayrıntısı');
   $('#sheet').innerHTML = `<div class="sh-head">${avatar(c)}<span class="nm"><h3>${esc(c.name)}</h3><span>${esc(c.sub || '')} · Türk lirası</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
     <p class="price num" id="sprice">${money(c.price, 'TRY')}</p>
-    ${c.src === 'harem' ? `<div class="chgrow"><span>Harem Altın satış <b class="num">${money(c.price, 'TRY')}</b></span>${c.alis ? `<span>alış <b class="num">${money(c.alis, 'TRY')}</b></span>` : ''}</div>` : ''}
+    ${c.src === 'harem' ? `<div class="chgrow"><span>Güncel satış <b class="num">${money(c.price, 'TRY')}</b></span>${c.alis ? `<span>alış <b class="num">${money(c.alis, 'TRY')}</b></span>` : ''}</div>` : ''}
     ${num(c.c24) !== null ? `<div class="chgrow"><span>24 sa <b class="num ${cc(c.c24) === 'up' ? 't-up' : 't-dn'}">${pct(c.c24)}</b></span></div>` : ''}
     ${chartPanel(c)}
     ${metrics ? `<section class="panel"><div class="metrics">${metrics}</div></section>` : ''}

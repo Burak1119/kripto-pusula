@@ -1,14 +1,17 @@
-// Harem Altın'ın herkese açık fiyat tablosundan altın alış/satış fiyatları (TL). Tek bir yerden, kısa önbellekle okunur;
-// alınamazsa ya da veri uç değerliyse null döner ve uygulama kendi hesabına geri düşer.
+// Altın fiyatları (TL): Trunçgil Finans'ın herkese açık, ücretsiz JSON akışından alış/satış fiyatları okunur.
+// (Harem Altın'ın herkese açık bir veri adresi yok; sitesi fiyatları sayfa içinde yükler, bu yüzden oradan okunmuyor.)
+// Tek yerden, kısa önbellekle okunur; alınamazsa ya da veri uç değerliyse null döner ve uygulama kendi hesabına geri düşer.
 // Teşhis: /api/harem?debug=1 → ham yanıtın başı ve ayrıştırma sonucu.
-const URLS = ['https://www.haremaltin.com/dashboard/ajax/doviz', 'https://canlipiyasalar.haremaltin.com/tmp/altin.json?dil_kodu=tr'];
-const HEAD = { 'user-agent': 'Mozilla/5.0 (compatible; KriptoPusula/1.0; kisisel kullanim)', accept: 'application/json, text/plain, */*', 'x-requested-with': 'XMLHttpRequest', referer: 'https://www.haremaltin.com/', origin: 'https://www.haremaltin.com' };
-// Uygulamadaki kalem → sitedeki olası kodlar (ilk bulunan alınır)
+const URLS = ['https://finans.truncgil.com/v4/today.json'];
+const HEAD = { 'user-agent': 'Mozilla/5.0 (compatible; KriptoPusula/1.0; kisisel kullanim)', accept: 'application/json, text/plain, */*' };
+// Uygulamadaki kalem → akıştaki olası kodlar (ilk bulunan alınır). Trunçgil kodları başta, eski Harem kodları yedekte.
 const MAP = {
-  'fx:gold': ['KULCEALTIN', 'GRAMALTIN', 'GRAM', 'ALTIN'], 'fx:22': ['AYAR22', '22AYAR'], 'fx:14': ['AYAR14', '14AYAR'],
-  'fx:ceyrek': ['CEYREK_YENI', 'YENICEYREK', 'CEYREK'], 'fx:yarim': ['YARIM_YENI', 'YENIYARIM', 'YARIM'], 'fx:tam': ['TAM_YENI', 'YENITAM', 'TAM'], 'fx:ata': ['ATA_YENI', 'YENIATA', 'ATA'],
+  'fx:gold': ['GRA', 'KULCEALTIN', 'GRAMALTIN', 'GRAM', 'ALTIN'], 'fx:22': ['YIA', '22AYARBILEZIK', 'AYAR22', '22AYAR'], 'fx:18': ['18AYARALTIN', 'AYAR18'], 'fx:14': ['14AYARALTIN', 'AYAR14', '14AYAR'],
+  'fx:ceyrek': ['CEYREKALTIN', 'CEYREK_YENI', 'YENICEYREK', 'CEYREK'], 'fx:yarim': ['YARIMALTIN', 'YARIM_YENI', 'YENIYARIM', 'YARIM'], 'fx:tam': ['TAMALTIN', 'TAM_YENI', 'YENITAM', 'TAM'],
+  'fx:ata': ['ATAALTIN', 'CUMHURIYETALTINI', 'ATA_YENI', 'YENIATA', 'ATA'],
   'fx:ons': ['ONS', 'ONSALTIN'],
 };
+const SELL_KEYS = ['satis', 'alis', 'sell', 'ask', 'selling', 'buying'];
 const norm = (s) => String(s).toUpperCase().replace(/İ/g, 'I').replace(/[^A-Z0-9_]/g, '');
 function toNum(v) {
   if (typeof v === 'number') return isFinite(v) && v > 0 ? v : null;
@@ -24,7 +27,7 @@ function toNum(v) {
 function findTable(j, depth = 0) {
   if (!j || typeof j !== 'object' || depth > 3) return null;
   const keys = Object.keys(j);
-  const hit = keys.filter((k) => j[k] && typeof j[k] === 'object' && !Array.isArray(j[k]) && ('satis' in j[k] || 'alis' in j[k] || 'sell' in j[k] || 'ask' in j[k]));
+  const hit = keys.filter((k) => j[k] && typeof j[k] === 'object' && !Array.isArray(j[k]) && Object.keys(j[k]).some((f) => SELL_KEYS.includes(f.toLowerCase())));
   if (hit.length >= 3) return j;
   for (const k of keys) { const t = findTable(j[k], depth + 1); if (t) return t; }
   return null;
@@ -36,7 +39,8 @@ function parse(j) {
   for (const [id, codes] of Object.entries(MAP)) {
     for (const c of codes) {
       const r = idx[norm(c)]; if (!r) continue;
-      const alis = toNum(r.alis ?? r.bid ?? r.buy), satis = toNum(r.satis ?? r.ask ?? r.sell);
+      const f = {}; for (const k of Object.keys(r)) f[k.toLowerCase()] = r[k];
+      const alis = toNum(f.alis ?? f.bid ?? f.buy ?? f.buying), satis = toNum(f.satis ?? f.ask ?? f.sell ?? f.selling);
       if (satis) { out[id] = { alis: alis || null, satis, code: c }; break; }
     }
   }
@@ -47,8 +51,7 @@ async function fetchRaw() {
   let last = null;
   for (const u of URLS) {
     try {
-      const post = u.includes('/dashboard/');
-      const r = await fetch(u, { method: post ? 'POST' : 'GET', headers: post ? { ...HEAD, 'content-type': 'application/x-www-form-urlencoded' } : HEAD, body: post ? '' : undefined, signal: AbortSignal.timeout(7000) });
+      const r = await fetch(u, { headers: HEAD, signal: AbortSignal.timeout(7000) });
       const text = await r.text();
       let json = null; try { json = JSON.parse(text); } catch (e) { /* JSON değil */ }
       last = { url: u, status: r.status, text, json };

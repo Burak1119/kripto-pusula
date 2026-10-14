@@ -1,1 +1,1 @@
-Yeni görünüm: baştan tasarlandı. Daha okunaklı büyük yazılar, daha rahat basılan düğmeler, deniz haritası temalı renkler (coin, hisse ve altın için ayrı tonlar) ve yenilenmiş koyu tema. Tutar alanlarına yazarken binlik noktası kendiliğinden konuyor (10.000 gibi).
+Altın fiyatları artık ücretsiz bir fiyat akışından (Trunçgil Finans) çekiliyor: gram, çeyrek, yarım, tam, Ata, 14-18-22 ayar. Alınamazsa uygulama eskisi gibi kendi hesabına döner.

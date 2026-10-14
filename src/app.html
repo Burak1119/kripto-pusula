@@ -245,6 +245,12 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 .why li.n::before { background: var(--down); transform: rotate(45deg); }
 .chart { position: relative; height: 130px; margin: 6px 0 4px; border-block: 1px dashed var(--line); }
 .chart .endp { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--needle); box-shadow: 0 0 0 3px var(--surface); }
+.ptabs { display: flex; gap: 4px; margin: 8px 0 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.ptabs button { flex: none; min-height: 34px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ptabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cmeta { display: flex; align-items: baseline; gap: 10px; margin: 8px 0 0; font-size: 15px; font-weight: 700; }
+.cmeta .sub { font-weight: 400; font-size: 12px; }
+.live { color: var(--up); }
 .hilo { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .metrics div { background: var(--glass); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
@@ -1780,9 +1786,72 @@ function renderTip() {
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); S.installEv = e; renderTip(); });
 
 /* ---------- Detay paneli ---------- */
+/* ---------- Dönem grafiği (saat / gün / hafta / ay / yıl) + canlı takip ---------- */
+const PERIODS = [['1s', '1 sa'], ['1g', '1 gün'], ['1h', '1 hafta'], ['1a', '1 ay'], ['3a', '3 ay'], ['1y', '1 yıl']];
+const PLONG = { '1s': 'Son 1 saat', '1g': 'Son 24 saat', '1h': 'Son 1 hafta', '1a': 'Son 1 ay', '3a': 'Son 3 ay', '1y': 'Son 1 yıl' };
+const PLIVE = { '1s': 15000, '1g': 20000, '1h': 60000, '1a': 120000, '3a': 300000, '1y': 300000 };
+function chartKey(c) { return (isStock(c) ? 's:' : 'c:') + c.id; }
+function chartCanFetch(c) { return isStock(c) || S.canon[String(c.symbol).toUpperCase()] === c.id; }
+function chartFallback(c) { return c.spark && c.spark.length > 1 ? c.spark : null; }
+function chartStart(c) {
+  if (S.cfor === chartKey(c) && !$('#scrim').hidden) return; // aynı sayfa yeniden çizilirken dönem sıfırlanmasın
+  chartStop(); S.cfor = chartKey(c);
+  S.cper = isStock(c) ? '3a' : '1h'; S.cser = null; S.cstate = 'loading';
+  chartLoad(c);
+}
+function chartStop() { S.cfor = null; if (S.ctimer) { clearTimeout(S.ctimer); S.ctimer = null; } S.cgen = (S.cgen || 0) + 1; }
+function chartSchedule(c) {
+  if (S.ctimer) clearTimeout(S.ctimer);
+  S.ctimer = setTimeout(() => { S.ctimer = null; if (S.sel === c.id && !$('#scrim').hidden && !document.hidden) chartLoad(c, true); else if (S.sel === c.id && !$('#scrim').hidden) chartSchedule(c); }, PLIVE[S.cper] || 60000);
+}
+async function chartLoad(c, silent) {
+  const gen = S.cgen = (S.cgen || 0) + 1, per = S.cper, key = chartKey(c);
+  if (!silent) { S.cstate = 'loading'; chartRefresh(c); }
+  if (!chartCanFetch(c)) { S.cstate = 'err'; S.cser = null; chartRefresh(c); return; }
+  try {
+    const q = isStock(c) ? `k=s&sym=${encodeURIComponent(c.symbol)}&mk=${c.mk}` : `k=c&sym=${encodeURIComponent(String(c.symbol).toUpperCase())}`;
+    const j = await getJson(`/api/chart?${q}&p=${per}`, 12000);
+    if (gen !== S.cgen || per !== S.cper || S.sel !== c.id) return;
+    let v = j.v;
+    if (!isStock(c)) { // Binance dolar fiyatı; gösterilen para birimine, ilk gelen veriden bulunan oranla çevrilir
+      S.cratio = S.cratio || {};
+      if (!S.cratio[key] && num(c.price) !== null && v.length) S.cratio[key] = c.price / v[v.length - 1];
+      const r = S.cratio[key] || 1; v = v.map((x) => x * r);
+    }
+    S.cser = { per, v, t: j.t, at: Date.now() }; S.cstate = 'ok';
+  } catch (e) {
+    if (gen !== S.cgen || per !== S.cper) return;
+    if (!silent || !S.cser) { S.cstate = 'err'; S.cser = null; }
+  }
+  chartRefresh(c); chartSchedule(c);
+}
+function chartRefresh(c) {
+  const el = document.getElementById('cpanel'); if (!el || S.sel !== c.id) return;
+  el.innerHTML = chartInner(c);
+  const p = document.getElementById('sprice');
+  if (p && S.cser && S.cstate === 'ok' && (S.cper === '1s' || S.cper === '1g')) p.textContent = pm(c, S.cser.v[S.cser.v.length - 1]);
+}
+function chartInner(c) {
+  const tabs = `<div class="ptabs" role="tablist" aria-label="Grafik dönemi">${PERIODS.map(([k, n]) => `<button role="tab" data-cper="${k}" aria-selected="${S.cper === k}">${n}</button>`).join('')}</div>`;
+  let v = S.cstate === 'ok' && S.cser && S.cser.per === S.cper ? S.cser.v : null, note = '';
+  const def = S.cper === (isStock(c) ? '3a' : '1h');
+  if (!v && def) v = chartFallback(c);
+  let body;
+  if (v && v.length > 1) {
+    const hi = Math.max(...v), lo = Math.min(...v), last = v[v.length - 1], endY = 100 - ((last - lo) / (hi - lo || 1)) * 100, ch = (last / v[0] - 1) * 100;
+    const live = S.cstate === 'ok' && S.cser && (S.cper === '1s' || S.cper === '1g' || S.cper === '1h');
+    body = `<div class="cmeta"><span class="num ${ch >= 0 ? 't-up' : 't-dn'}">${pct(ch)}</span><span class="sub">${PLONG[S.cper]}${live ? ` · <span class="live">● canlı</span> ${new Date(S.cser.at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : ''}</span></div>
+      <div class="chart">${sparkSvg(v, 100, 100)}<span class="endp" style="left:100%;top:${endY.toFixed(1)}%"></span></div><div class="hilo num"><span>En düşük ${pm(c, lo)}</span><span>En yüksek ${pm(c, hi)}</span></div>`;
+    if (S.cstate === 'loading') note = '<div class="hint">Güncelleniyor…</div>';
+  } else if (S.cstate === 'loading') body = '<div class="hint" style="padding:36px 0;text-align:center">Grafik yükleniyor…</div>';
+  else body = `<div class="hint" style="padding:28px 0;text-align:center">Bu dönem için veri alınamadı.${isStock(c) ? ' Borsa kapalıysa ya da veri kaynağı yanıt vermiyorsa böyle olabilir.' : ' Bu coin Binance\'te listelenmiyor olabilir.'}</div>`;
+  return `<h2>Fiyat grafiği</h2>${tabs}${body}${note}`;
+}
+const chartPanel = (c) => `<section class="panel" id="cpanel">${chartInner(c)}</section>`;
+
 function openSheet(id) {
   const c = byId(id); if (!c) return;
-  S.sel = id;
+  S.sel = id; chartStart(c);
   const stk = isStock(c), a = c.a, st = a.st, isFav = S.favs.includes(id);
   const noScore = a.signal === 'STABİL' || a.signal === 'VERİ YOK';
   const fill = a.score >= 0 ? `left:50%;width:${a.score / 2}%` : `right:50%;width:${-a.score / 2}%`;
@@ -1797,12 +1866,12 @@ function openSheet(id) {
   $('#sheet').setAttribute('aria-label', stk ? 'Hisse ayrıntısı' : 'Coin ayrıntısı');
   $('#sheet').innerHTML = `
     <div class="sh-head">${avatar(c)}<span class="nm"><h3>${esc(c.name)}</h3><span>${sub}</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
-    <p class="price num">${pm(c, c.price)}</p>
+    <p class="price num" id="sprice">${pm(c, c.price)}</p>
     <div class="chgrow">${chgs.map(([k, v]) => `<span>${k} <b class="num ${cc(v) === 'up' ? 't-up' : cc(v) === 'dn' ? 't-dn' : ''}">${pct(v)}</b></span>`).join('')}</div>
     <section class="panel verdict"><div class="vline"><span class="sig ${a.cls}">${a.signal}</span><span class="sub">${a.signal === 'VERİ YOK' ? 'Puan hesaplanamadı' : `Puan <b class="num">${a.score}</b> / 100 · Risk: <b>${a.risk}</b>`}${a.hot ? ' · <b class="t-dn">aşırı ısınmış</b>' : ''}</span></div>
       ${noScore ? '' : `<div class="scorebar" role="img" aria-label="Puan ${a.score}"><span class="mid"></span><span class="fill ${a.score >= 0 ? 'p' : 'n'}" style="${fill}"></span></div>`}
       <ul class="why">${a.reasons.map((r) => `<li class="${r.pos === true ? 'p' : r.pos === false ? 'n' : ''}">${esc(r.t)}</li>`).join('')}</ul></section>
-    ${st ? `<section class="panel"><h2>${stk ? 'Son 3 ay (günlük kapanış)' : 'Son 7 gün'}</h2><div class="chart">${sparkSvg(c.spark, 100, 100)}<span class="endp" style="left:100%;top:${endY.toFixed(1)}%"></span></div><div class="hilo num"><span>En düşük ${pm(c, lo)}</span><span>En yüksek ${pm(c, hi)}</span></div></section>` : ''}
+    ${chartPanel(c)}
     <section class="panel"><div class="metrics">${metrics}</div></section>
     ${stk ? `<section class="panel"><h2>${esc(c.name)} nedir?</h2><p style="margin:0">${esc(c.desc)}</p></section>` : ''}
     ${(a.hits || []).length ? `<section class="panel"><h2>Bu ${stk ? 'hisseyle' : 'coinle'} ilgili haberler</h2>${newsList(a.hits.slice(0, 5))}</section>` : ''}
@@ -1813,7 +1882,7 @@ function openSheet(id) {
   $('#scrim').hidden = false;
   $('#close').focus();
 }
-function closeSheet() { $('#scrim').hidden = true; S.sel = null; }
+function closeSheet() { $('#scrim').hidden = true; S.sel = null; chartStop(); }
 
 /* ---------- Veri ---------- */
 async function getJson(url, ms) {
@@ -1896,6 +1965,7 @@ if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message',
 /* ---------- Olaylar ---------- */
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .scrim'); if (!t) return;
+  if (t.dataset.cper) { const c = byId(S.sel); if (c && S.cper !== t.dataset.cper) { S.cper = t.dataset.cper; S.cser = null; chartLoad(c); } return; }
   if (t.dataset.kind) setKind(t.dataset.kind === 'choose' ? null : t.dataset.kind);
   else if (t.dataset.tab) { S.tab = t.dataset.tab; render(); window.scrollTo(0, 0); if (S.tab === 'portfoy') ensurePort(); }
   else if (t.dataset.ppick) pickItem(t.dataset.ppick)

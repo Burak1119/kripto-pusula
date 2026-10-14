@@ -6,6 +6,7 @@
     "api/stocks.js": { "maxDuration": 30 },
     "api/coins.js": { "maxDuration": 30 },
     "api/history.js": { "maxDuration": 30 },
+    "api/chart.js": { "maxDuration": 15 },
     "api/cron.js": { "maxDuration": 60 },
     "api/translate.js": { "maxDuration": 20 }
   }

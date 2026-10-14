@@ -2,7 +2,7 @@
 const fs = require('fs'), path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.html'), 'utf8');
 const code = html.split('// ENGINE START')[1].split('// ENGINE END')[0];
-const E = new Function(code + '; return { portRisk, portEncode, portDecode, fxTable, morningMessage, alertsRun };')();
+const E = new Function(code + '; return { portRisk, portEncode, portDecode, fxTable, morningMessage, alertsRun, planInvest };')();
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('HATA:', m); } else console.log('ok  ', m); };
 const row = (sym, value, risk, signal, hot) => ({ h: { sym }, c: { value, cur: 'TRY' }, it: { a: { risk, signal, hot: !!hot } } });
@@ -41,4 +41,29 @@ ok(E.morningMessage([], () => null, []) === null, 'veri yoksa sabah özeti uydur
 const al = [{ u: 'x', k: 'c', id: 'b', sym: 'btc', name: 'Bitcoin', dir: 'dn', price: 90, ccy: 'TRY', n: 'maliyetinin %10 altına indi', done: null }];
 const am = E.alertsRun(al, () => 80, 1);
 ok(am.length === 1 && am[0].title === 'Bitcoin: maliyetinin %10 altına indi' && al[0].done === 1 && am[0].k === 'c' && am[0].id === 'b', 'otomatik kural alarmı notuyla ve açılacak varlık bilgisiyle çalar');
+
+// Yatırım planı
+const cand = (id, score, risk, signal, hot, ptry, kind) => ({ id, name: id, symbol: id, kind: kind || 'coin', ptry, a: { signal: signal || 'AL', score, risk, hot: !!hot, reasons: [{ pos: true, t: id + ' iyi' }, { pos: false, t: 'kötü' }] } });
+const cs = [cand('a', 60, 'Düşük', 'GÜÇLÜ AL', false, 100), cand('b', 50, 'Orta', 'AL', false, 50), cand('c', 40, 'Düşük', 'AL', false, 10), cand('d', 30, 'Yüksek', 'AL', false, 5),
+  cand('hot', 90, 'Düşük', 'AL', true, 1), cand('bekle', 15, 'Düşük', 'BEKLE', false, 1), cand('sat', -30, 'Düşük', 'SAT', false, 1), cand('h1', 40, 'Düşük', 'AL', false, 25, 'stock')];
+let pl = E.planInvest(cs, 10000, 'orta');
+ok(pl && !pl.wait && pl.picks.length === 3 && pl.picks.map((p) => p.id).join() === 'a,b,c', 'orta riskte puanı yüksek ve riski orta ya da düşük 3 aday seçildi');
+ok(!pl.picks.some((p) => p.id === 'hot' || p.id === 'd' || p.id === 'bekle' || p.id === 'sat'), 'aşırı ısınmış, yüksek riskli, Bekle ve Sat olanlar seçilmedi');
+ok(pl.picks.every((p) => p.share <= 0.4 * 0.9 + 1e-9), 'her varlığın payı üst sınırın (%40) altında, nakit payı düşülmüş');
+ok(Math.abs(pl.picks.reduce((s, p) => s + p.used, 0) + pl.cash - 10000) < 1e-6, 'harcanan + bekleyen nakit = toplam tutar');
+ok(pl.picks[0].qty > 0 && Math.abs(pl.picks[0].used - pl.picks[0].qty * 100) < 1e-6 && pl.picks[0].why[0] === 'a iyi' && pl.picks[0].why.length === 1, 'adet ve gerekçe hesaplandı');
+pl = E.planInvest(cs, 10000, 'dusuk');
+ok(pl.picks.map((p) => p.id).join() === 'a,c,h1' && pl.cash >= 2000 - 1e-6, 'düşük riskte yalnızca düşük riskliler ve en az %20 nakit');
+pl = E.planInvest(cs, 10000, 'yuksek');
+const pyh = E.planInvest([cand('d', 80, 'Yüksek', 'AL', false, 5), cand('e', 30, 'Yüksek', 'AL', false, 5), cand('f', 25, 'Yüksek', 'AL', false, 5)], 1000, 'yuksek');
+ok(pl.picks.map((p) => p.id).join() === 'a,b,c' && pl.cash < 100 && pyh.picks.length === 3 && E.planInvest([cand('d', 80, 'Yüksek', 'AL', false, 5)], 1000, 'orta').wait, 'yüksek riskte nakit ayrılmaz; yüksek riskliler yalnızca bu seçenekte aday olur');
+pl = E.planInvest(cs.filter((x) => x.id === 'b'), 1000, 'orta');
+ok(!pl.wait && pl.picks.length === 1 && pl.picks[0].share <= 0.45 + 1e-9 && pl.cash >= 500, 'tek aday varsa tutarın yarısından azı yatırılır, kalanı bekler');
+pl = E.planInvest(cs.filter((x) => x.id === 'hot' || x.id === 'sat'), 1000, 'orta');
+ok(pl.wait && pl.picks.length === 0 && pl.cash === 1000, 'uygun aday yoksa "bekle" sonucu');
+ok(E.planInvest(cs, 0, 'orta') === null && E.planInvest(cs, -5, 'orta') === null, 'tutar geçersizse plan yok');
+pl = E.planInvest([cand('s1', 50, 'Düşük', 'AL', false, 33, 'stock'), cand('s2', 45, 'Düşük', 'AL', false, 120, 'stock'), cand('s3', 40, 'Düşük', 'AL', false, 70, 'stock')], 5000, 'yuksek');
+ok(pl.picks.every((p) => Number.isInteger(p.qty)), 'hissede adet tam sayıya yuvarlanır');
+pl = E.planInvest([cand('x', 50, 'Düşük', 'AL', false, null), cand('y', 45, 'Düşük', 'AL', false, null), cand('z', 40, 'Düşük', 'AL', false, null)], 3000, 'yuksek');
+ok(pl.picks.every((p) => p.qty === null) && Math.abs(pl.cash) < 1e-6, 'fiyatı bilinmeyenlerde adet verilmez, tutar yine bölünür');
 process.exit(fail ? 1 : 0);

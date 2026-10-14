@@ -1,1 +1,1 @@
-Yeni: altın fiyatları Harem Altın'dan çekilmeye çalışılıyor (alınamazsa eski hesaplama devam eder).
+Yeni: Pano'da 'Param var, nereye yatırayım?' kartı: tutarını ve risk iştahını yaz, hangi coin/hisseye ne kadar ve kaç adet yatıracağını göstersin.

@@ -295,6 +295,8 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 .ghead span:last-child { font-weight: 400; color: var(--muted); font-size: 13px; }
 .riskbar { position: relative; height: 10px; border-radius: 99px; background: linear-gradient(90deg, var(--up), var(--warn), var(--down)); margin: 10px 0 6px; opacity: .85; }
 .riskbar i { position: absolute; top: -4px; width: 4px; height: 18px; border-radius: 2px; background: var(--ink); transform: translateX(-2px); }
+.plrow { cursor: pointer; }
+.plwhy { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 .hilo { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .metrics div { background: var(--glass); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
@@ -394,7 +396,7 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 </style>
 </head>
 <body>
-<script>window.KP_BUILD="8238cf2a0a";</script>
+<script>window.KP_BUILD="80669c0152";</script>
 <div id="app">
   <header class="top">
     <button class="brand" data-kind="choose" aria-label="Başa dön: Coin mi Hisse mi seç">
@@ -1203,6 +1205,39 @@ function morningMessage(watch, itemOf, fxt) {
   if (!parts.length) return null;
   return { tag: 'morning', title: 'Günaydın, piyasa özeti', body: parts.join(' ') };
 }
+// Yatırım planı: eldeki tutarı (TL) puanı yüksek, aşırı ısınmamış adaylara riske göre böler. Yatırım tavsiyesi değildir.
+// cands: [{ id, name, symbol, kind, a: { signal, score, risk, hot, reasons }, ptry }]; ptry: 1 birimin TL fiyatı (yoksa null). risk: 'dusuk' | 'orta' | 'yuksek'.
+function planInvest(cands, amount, risk) {
+  const rk = (x) => (x.a.risk === 'Yüksek' ? 3 : x.a.risk === 'Orta' ? 2 : 1);
+  const maxRisk = { dusuk: 1, orta: 2, yuksek: 3 }[risk] || 2, cashPct = { dusuk: 20, orta: 10, yuksek: 0 }[risk] ?? 10;
+  if (!(amount > 0)) return null;
+  const pool = cands.filter((x) => x.a && (x.a.signal === 'AL' || x.a.signal === 'GÜÇLÜ AL') && x.a.score >= 20 && !x.a.hot && rk(x) <= maxRisk).sort((p, q) => q.a.score - p.a.score);
+  const n = Math.min(pool.length, amount >= 100000 ? 5 : amount >= 20000 ? 4 : 3);
+  if (!n) return { wait: true, picks: [], cash: amount, amount, pool: 0 };
+  const top = pool.slice(0, n);
+  let w = top.map((x) => x.a.score / rk(x));
+  const sum0 = w.reduce((s, v) => s + v, 0); w = w.map((v) => v / sum0);
+  const cap = n >= 3 ? 0.4 : n === 2 ? 0.6 : 1;
+  for (let k = 0; k < 4; k++) {
+    const over = w.reduce((s, v) => s + Math.max(0, v - cap), 0); if (over < 1e-9) break;
+    const free = w.filter((v) => v < cap).reduce((s, v) => s + v, 0);
+    w = w.map((v) => (v >= cap ? cap : free > 0 ? v + (over * v) / free : v));
+  }
+  const invFrac = (1 - cashPct / 100) * (n >= 3 ? 1 : n === 2 ? 0.8 : 0.5), invested = amount * invFrac;
+  let spent = 0;
+  const picks = top.map((x, i) => {
+    const share = w[i] * invFrac, tl = invested * w[i];
+    let qty = null, used = tl;
+    if (num(x.ptry) !== null && x.ptry > 0) {
+      qty = x.kind === 'stock' ? Math.floor(tl / x.ptry) : Number((tl / x.ptry).toPrecision(6));
+      used = qty * x.ptry;
+    }
+    spent += used;
+    const why = (x.a.reasons || []).filter((r) => r.pos === true).slice(0, 2).map((r) => r.t);
+    return { id: x.id, name: x.name, symbol: x.symbol, kind: x.kind, signal: x.a.signal, score: x.a.score, risk: x.a.risk, share, tl, qty, used, why };
+  });
+  return { wait: false, picks, cash: amount - spent, amount, pool: pool.length, cashPct, n };
+}
 // ENGINE END
 
 /* ---------- Arayüz ---------- */
@@ -1214,6 +1249,7 @@ const store = {
 };
 // kind: null = açılış seçim ekranı, 'coin' ya da 'stock'. Her açılışta seçim ekranı gelir.
 const S = {
+  plan: store.get('plan', { amt: '10000', risk: 'orta', scope: 'cur' }),
   rules: store.get('rules', { on: false, loss: 10, gain: 25 }), morning: store.get('morning', { on: false, h: 9 }), cv: { amt: '10000', u: 'TRY' },
   theme: store.get('theme', 'auto'), fz: store.get('fz', 1), pmode: store.get('pmode', 'deger'),
   kind: null, tab: 'pano', cur: store.get('cur', 'usd'), favs: store.get('favs', []),
@@ -1438,7 +1474,7 @@ function viewPano() {
       <div class="rows">${worst.length ? worst.map(row).join('') : '<div class="empty">Belirgin bir uyarı yok.</div>'}</div></section>`;
   const riskyP = risky.length ? `<section class="panel span2"><h2>Riskli ama hareketli</h2><div class="sub" style="margin-bottom:6px">İlk 100'ün dışındaki küçük coinler. Puanı iyi görünür ama fiyatı kolay sertçe düşer, alıp satarken fiyat kayabilir. Yalnızca kaybetmeyi göze alabileceğin küçük tutarla düşün.</div>
       <div class="rows">${risky.map(row).join('')}</div></section>` : '';
-  return `${stockNotes()}<div class="grid2">${briefHtml(w)}${mood}${middle}${riskyP}${noPoints ? '' : btHtml(w)}
+  return `${stockNotes()}<div class="grid2">${planCard(w)}${briefHtml(w)}${mood}${middle}${riskyP}${noPoints ? '' : btHtml(w)}
   <section class="panel span2"><h2>Son haberler</h2>${newsList(w.news.slice(0, 6))}</section></div>`;
 }
 function newsList(list) {
@@ -2267,6 +2303,58 @@ function setKind(k) {
   if (k === 'fx') { S.fxAt = 0; loadFx().then(() => { if ($('#scrim').hidden) render(); }); }
 }
 
+/* ---------- Yatırım planı: "param var, ne alayım?" ---------- */
+function priceTry(it) {
+  if (num(it.price) === null) return null;
+  const cur = isStock(it) ? it.cur : it.fx || CUR_LOCALE[S.cur];
+  return fxConv(it.price, cur, 'TRY', S.fx);
+}
+function planScope() { const s = S.plan.scope; return s === 'cur' ? (S.kind === 'stock' ? 'stock' : 'coin') : s; }
+function planCands(scope) {
+  const out = [];
+  const add = (it, kind) => out.push({ id: it.id, name: it.name, symbol: it.symbol, kind, a: it.a, ptry: priceTry(it) });
+  if (scope === 'coin' || scope === 'both') for (const c of S.coins) if (c.a && c.a.signal !== 'STABİL' && (c.rank || 9999) <= 100) add(c, 'coin');
+  if (scope === 'stock' || scope === 'both') for (const c of S.sitems) if (c.a && c.a.st) add(c, 'stock');
+  return out;
+}
+function planCard(w) {
+  return `<section class="panel span2 plancard"><h2>Param var, nereye yatırayım?</h2>
+    <div class="sub" style="margin-bottom:10px">Tutarı yaz, risk iştahını seç; şu anki puanlara göre nasıl bölüneceğini ve her birinden kaç adet alınacağını göstereyim.</div>
+    <button class="btn primary" id="planopen">Yatırım planı oluştur</button></section>`;
+}
+function planOutHtml() {
+  const scope = planScope(), amt = parseNumTr(S.plan.amt);
+  const need = scope === 'both' ? ['coin', 'stock'] : [scope];
+  if (need.includes('coin') && !S.info) return '<div class="hint">Coin verisi yükleniyor…</div>';
+  if (need.includes('stock') && S.sstate !== 'ready') return `<div class="hint">${S.sstate === 'error' ? 'Hisse verisine ulaşılamadı.' : 'Hisse verisi yükleniyor…'}</div>`;
+  if (!(amt > 0)) return '<div class="hint">Yatırmak istediğin tutarı yaz.</div>';
+  const r = planInvest(planCands(scope), amt, S.plan.risk);
+  const now = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const data = S.mode === 'demo' ? '<b class="t-dn">Örnek veri: gerçek öneri değildir.</b> ' : '';
+  const head = `<div class="sub" style="margin:10px 0 6px">${data}Bugün ${now} verilerine göre. Puanlar değişince öneri de değişir.</div>`;
+  if (r.wait) return head + `<div class="panel" style="margin:0"><b>Şu an net bir alım adayı yok.</b><div class="sub">Seçtiğin risk seviyesinde puanı yüksek, aşırı ısınmamış ve Al sinyali veren varlık bulunamadı. Parayı bekletmek de bir karardır; birkaç saat ya da gün sonra yeniden bak. Risk seviyesini yükseltirsen daha fazla aday çıkabilir.</div></div>` + planDisc();
+  const f = (v) => money(v, 'TRY');
+  const rows = r.picks.map((p) => `<button class="row prow plrow" data-item="${esc(p.id)}"><span class="who"><span class="nm"><b>${esc(p.name)}</b><span>${esc(String(p.symbol).toUpperCase())} · ${p.signal} · puan ${p.score} · risk ${esc(p.risk)}</span></span></span>
+      <span class="px"><span class="num">${f(p.tl)}</span><span class="chg num">%${Math.round(p.share * 100)}${p.qty !== null ? ' · ' + fmtQty(p.qty) + (p.kind === 'stock' ? ' adet' : '') : ''}</span></span>
+      ${p.why.length ? `<span class="plwhy">${p.why.map((t) => '• ' + esc(t)).join('<br>')}</span>` : ''}</button>`).join('');
+  const few = r.n < 3 ? `<p class="rnote warn" style="margin:8px 0 0">Yalnızca ${r.pool} uygun aday var; hepsini birden alıp tek yere yığılmamak için tutarın bir kısmı bekletiliyor.</p>` : '';
+  return head + `<div class="rows">${rows}</div>
+    <div class="sub" style="margin-top:8px">Bekletilecek (nakit ya da stabil): <b class="num">${f(r.cash)}</b>${r.picks.some((p) => p.kind === 'stock') ? ' (hisselerde tam adede yuvarlanınca artan para dahil)' : ''}</div>${few}
+    <p class="rnote" style="margin:8px 0 0">Tek seferde almak yerine tutarı 2-3 parçaya bölüp birkaç güne yaymak, fiyat dalgalanmasının etkisini azaltır. Aldıktan sonra Portföy sekmesinden ekleyip takip edebilirsin.</p>` + planDisc();
+}
+const planDisc = () => '<p class="rnote" style="margin:8px 0 0"><b>Yatırım tavsiyesi değildir.</b> Puanlar geçmiş fiyat hareketinden ve haber başlıklarından otomatik hesaplanır; geleceği tahmin etmez, kâr garantisi vermez. Pano\'daki Sinyal karnesi bu puanların geçmişte ne kadar tuttuğunu gösterir. Kaybetmeyi göze alabileceğin tutarla işlem yap.</p>';
+function planUpdate() { const el = $('#planout'); if (el) el.innerHTML = planOutHtml(); }
+function openPlan() {
+  const chip = (attr, val, label, on) => `<button class="chip" data-${attr}="${val}" aria-pressed="${on}">${label}</button>`;
+  const cur = S.kind === 'stock' ? 'Hisse' : 'Coin';
+  showSheet(`<div class="sh-head"><span class="nm"><h3>Yatırım planı</h3><span>Tutara ve riske göre dağılım</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
+    <section class="panel"><div class="pfform"><label>Ne kadar yatırmak istiyorsun? (₺)<input id="planamt" inputmode="decimal" autocomplete="off" value="${esc(S.plan.amt)}" placeholder="örn. 10000"></label>
+      <div><div class="sub" style="margin-bottom:4px">Nereye</div><div class="chips" style="margin:0">${chip('pls', 'cur', 'Bulunduğum liste (' + cur + ')', S.plan.scope === 'cur')}${chip('pls', 'both', 'Coin + Hisse', S.plan.scope === 'both')}</div></div>
+      <div><div class="sub" style="margin-bottom:4px">Risk iştahın</div><div class="chips" style="margin:0">${[['dusuk', 'Düşük'], ['orta', 'Orta'], ['yuksek', 'Yüksek']].map(([v, n]) => chip('plr', v, n, S.plan.risk === v)).join('')}</div>
+      <div class="hint" style="margin-top:4px">Düşük: yalnızca düşük riskli, %20 nakit. Orta: düşük ve orta riskli, %10 nakit. Yüksek: riski yüksek olanlar da dahil, nakit ayrılmaz.</div></div></div></section>
+    <div id="planout">${planOutHtml()}</div>`, 'Yatırım planı');
+  if (S.plan.scope === 'both' && S.sstate === 'idle') loadStockWorld();
+}
 /* ---------- Otomatik kurallar (maliyete göre alarm) ---------- */
 // Kural açıkken her varlık için maliyetin altına/üstüne iki alarm kurulur; mevcut alarm sistemiyle çalışır, sunucuya yalnız hedef fiyat gider.
 function syncRuleAlerts() {
@@ -2394,6 +2482,9 @@ setInterval(checkUpdate, 600000);
 /* ---------- Olaylar ---------- */
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .scrim'); if (!t) return;
+  if (t.id === 'planopen') { openPlan(); return; }
+  if (t.dataset.plr) { S.plan.risk = t.dataset.plr; store.set('plan', S.plan); document.querySelectorAll('[data-plr]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.plr === S.plan.risk))); planUpdate(); return; }
+  if (t.dataset.pls) { S.plan.scope = t.dataset.pls; store.set('plan', S.plan); document.querySelectorAll('[data-pls]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pls === S.plan.scope))); if (S.plan.scope === 'both' && S.sstate === 'idle') loadStockWorld().then(planUpdate); planUpdate(); return; }
   if (t.id === 'rtoggle') {
     const l = parseNumTr($('#rloss').value), g = parseNumTr($('#rgain').value);
     S.rules = { on: !S.rules.on, loss: l > 0 && l < 100 ? l : 10, gain: g > 0 && g <= 1000 ? g : 25 };
@@ -2499,6 +2590,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('input', (e) => {
   const id = e.target.id;
+  if (id === 'planamt') { S.plan.amt = e.target.value; store.set('plan', S.plan); planUpdate(); return; }
   if (id === 'cvamt') { S.cv.amt = e.target.value; cvUpdate(); return; }
   if (id === 'pq') { fillPres(); return; }
   if (id === 'pimp') { S.pimp = e.target.value; return; }

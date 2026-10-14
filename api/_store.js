@@ -1,6 +1,8 @@
 // Kalıcı depo: Upstash Redis (Vercel'de "Storage" bölümünden ücretsiz eklenir). REST ile konuşur, ek paket gerekmez.
-const base = () => process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-const token = () => process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+// Vercel'in eklediği değişkenlerin adı seçilen ön eke göre değişir (KV_..., STORAGE_..., UPSTASH_...); hepsi aranır. Salt-okunur anahtar kullanılmaz.
+const pick = (re) => { const k = Object.keys(process.env).find((x) => re.test(x) && !/READ_ONLY/.test(x) && process.env[x]); return k ? process.env[k] : ''; };
+const base = () => process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || pick(/REST_API_URL$|REST_URL$/);
+const token = () => process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || pick(/REST_API_TOKEN$|REST_TOKEN$/);
 const configured = () => !!(base() && token());
 async function cmd(...args) {
   const r = await fetch(base(), { method: 'POST', headers: { authorization: 'Bearer ' + token(), 'content-type': 'application/json' }, body: JSON.stringify(args), signal: AbortSignal.timeout(8000) });

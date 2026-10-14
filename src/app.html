@@ -1036,7 +1036,7 @@ function alertsRun(alerts, priceOf, now) {
     const p = priceOf(a);
     if (!alertHit(a, p)) continue;
     a.done = now;
-    msgs.push({ tag: 'al-' + a.u, title: `${a.name}: hedef fiyata ulaştı`, body: `${String(a.sym).toUpperCase()} şu an ${fmtMoney(p, a.ccy)}; ${a.dir === 'up' ? 'yukarı' : 'aşağı'} hedefin ${fmtMoney(a.price, a.ccy)} idi.` });
+    msgs.push({ k: a.k, id: a.id, tag: 'al-' + a.u, title: `${a.name}: hedef fiyata ulaştı`, body: `${String(a.sym).toUpperCase()} şu an ${fmtMoney(p, a.ccy)}; ${a.dir === 'up' ? 'yukarı' : 'aşağı'} hedefin ${fmtMoney(a.price, a.ccy)} idi.` });
   }
   return msgs;
 }
@@ -1051,11 +1051,11 @@ function watchMessages(watch, itemOf, prevSigs, done, day) {
     if (p && p !== s && SIG_RANK[p] !== undefined && SIG_RANK[s] < SIG_RANK[p] && SIG_RANK[s] <= -1 && nd['s:' + w.id + s] !== day) {
       nd['s:' + w.id + s] = day;
       const why = (it.a.reasons || []).find((x) => x.pos === false);
-      msgs.push({ tag: 'sig-' + w.id, title: `${w.name}: sinyal ${s}`, body: `${p} → ${s}. ${(why && why.t) || 'Trend zayıfladı.'}` });
+      msgs.push({ k: w.k, id: w.id, tag: 'sig-' + w.id, title: `${w.name}: sinyal ${s}`, body: `${p} → ${s}. ${(why && why.t) || 'Trend zayıfladı.'}` });
     }
     if (num(it.c24) !== null && Math.abs(it.c24) >= 8 && nd['m:' + w.id] !== day) {
       nd['m:' + w.id] = day;
-      msgs.push({ tag: 'mv-' + w.id, title: `${w.name} bugün ${fmtP(it.c24)}`, body: 'Bir günde sert hareket etti. Detay için uygulamayı aç.' });
+      msgs.push({ k: w.k, id: w.id, tag: 'mv-' + w.id, title: `${w.name} bugün ${fmtP(it.c24)}`, body: 'Bir günde sert hareket etti. Detay için uygulamayı aç.' });
     }
   }
   return { msgs, sigs, done: nd };
@@ -1725,10 +1725,10 @@ async function loadFx() {
   if (S.fx && Date.now() - S.fxAt < 600000) return;
   try { const j = await getJson('/api/fx', 10000); if (j && j.USD > 0 && j.EUR > 0) { S.fx = { TRY: 1, USD: j.USD, EUR: j.EUR }; S.fxAt = Date.now(); } } catch (e) { /* kur yoksa tek toplam gösterilmez */ }
 }
-async function notify(title, body, tag) {
+async function notify(title, body, tag, data) {
   try {
     const reg = navigator.serviceWorker && (await navigator.serviceWorker.getRegistration());
-    if (reg && reg.showNotification) { await reg.showNotification(title, { body, tag, icon: '/icon-192.png' }); return; }
+    if (reg && reg.showNotification) { await reg.showNotification(title, { body, tag, icon: '/icon-192.png', data: data || {} }); return; }
     new Notification(title, { body, tag });
   } catch (e) { /* bildirim gösterilemedi, uygulama etkilenmez */ }
 }
@@ -1744,13 +1744,13 @@ function checkAlerts() {
         saveAlerts(); syncPushSoon();
         const msg = am.map((m) => m.title).join(' · '); S.flash = msg;
         setTimeout(() => { if (S.flash === msg) { S.flash = ''; renderImportBar(); } }, 45000);
-        if (can) am.forEach((m) => notify(m.title, m.body, m.tag));
+        if (can) am.forEach((m) => notify(m.title, m.body, m.tag, { k: m.k, id: m.id }));
       }
     }
     if (!rows.length) return;
     const byId = new Map(rows.map((r) => [r.h.id, r.it])), day = new Date().toISOString().slice(0, 10);
-    const stored = store.get('sig', {}), w = watchMessages(rows.map((r) => ({ id: r.h.id, name: r.h.name })), (x) => byId.get(x.id), stored, store.get('notified', {}), day);
-    if (can && !S.push.on) w.msgs.forEach((m) => notify(m.title, m.body, m.tag));
+    const stored = store.get('sig', {}), w = watchMessages(rows.map((r) => ({ k: r.h.kind === 'stock' ? 's' : 'c', id: r.h.id, name: r.h.name })), (x) => byId.get(x.id), stored, store.get('notified', {}), day);
+    if (can && !S.push.on) w.msgs.forEach((m) => notify(m.title, m.body, m.tag, { k: m.k, id: m.id }));
     store.set('notified', w.done); store.set('sig', { ...stored, ...w.sigs });
   } catch (e) { /* uyarı kontrolü uygulamayı durdurmaz */ }
 }
@@ -1879,6 +1879,20 @@ function setKind(k) {
   if (k === 'coin') ensurePort();
 }
 
+/* ---------- Bildirimden açma ---------- */
+// Bildirime tıklanınca ilgili coin/hisse dünyasına geçip detay sayfasını açar (veri gelene kadar bekler).
+function openFromNote(k, id) {
+  if (!id || (k !== 'c' && k !== 's')) return;
+  setKind(k === 's' ? 'stock' : 'coin');
+  let n = 0;
+  const t = setInterval(() => {
+    n++;
+    if (byId(id)) { clearInterval(t); try { openSheet(id); } catch (e) {} }
+    else if (n > 60) clearInterval(t);
+  }, 300);
+}
+if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', (e) => { const d = e.data; if (d && d.open) openFromNote(d.open.k, d.open.id); });
+
 /* ---------- Olaylar ---------- */
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .scrim'); if (!t) return;
@@ -1985,6 +1999,7 @@ $('#cur').value = S.cur;
 try { if (/^#p=/.test(location.hash)) { const l = portDecode(location.hash); if (l && l.length) S.pimport = l; } } catch (e) {}
 render();
 S.bootP = load();
+try { const q = new URLSearchParams(location.search).get('open'); if (q) { const [k, ...r] = q.split(':'); history.replaceState(null, '', location.pathname + location.hash); openFromNote(k, r.join(':')); } } catch (e) {}
 setInterval(() => {
   if (document.hidden || !$('#scrim').hidden) return;
   if (S.kind === 'coin' && S.mode === 'live') load();

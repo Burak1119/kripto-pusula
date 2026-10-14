@@ -67,7 +67,7 @@ names = "analyze, newsContext, buildStockWorld, watchMessages, alertsRun, alertH
     encoding="utf-8")
 
 (pub / "sw.js").write_text("""// Önce ağ, olmazsa önbellek: çevrimdışıyken son görülen ekran açılır.
-const NAME = 'kripto-pusula-v4';
+const NAME = 'kripto-pusula-v5';
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(NAME).then((c) => c.addAll(['/']))); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== NAME).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 // Sunucudan gelen boş "dürtme": asıl bildirim metnini sunucudan alıp gösterir (iPhone her dürtmede bildirim gösterilmesini şart koşar).
@@ -82,12 +82,16 @@ self.addEventListener('push', (e) => {
       }
     } catch (err) { /* ağ yoksa genel mesaj gösterilir */ }
     if (!msgs.length) msgs = [{ title: 'Kripto Pusula', body: 'Elindeki varlıklarla ilgili yeni bir gelişme var. Ayrıntı için uygulamayı aç.' }];
-    for (const m of msgs.slice(0, 5)) await self.registration.showNotification(m.title, { body: m.body || '', tag: m.tag || undefined, icon: '/icon-192.png' });
+    for (const m of msgs.slice(0, 5)) await self.registration.showNotification(m.title, { body: m.body || '', tag: m.tag || undefined, icon: '/icon-192.png', data: { k: m.k || '', id: m.id || '' } });
   })());
 });
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ws) => (ws.length ? ws[0].focus() : self.clients.openWindow('/'))));
+  const d = e.notification.data || {}, open = d.id && (d.k === 'c' || d.k === 's') ? { k: d.k, id: d.id } : null;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ws) => {
+    if (ws.length) { const w = ws[0]; if (open) w.postMessage({ open }); return w.focus(); }
+    return self.clients.openWindow(open ? '/?open=' + open.k + ':' + encodeURIComponent(open.id) : '/');
+  }));
 });
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;

@@ -1,1 +1,1 @@
-Yeni: Pano'da 'Param var, nereye yatırayım?' kartı: tutarını ve risk iştahını yaz, hangi coin/hisseye ne kadar ve kaç adet yatıracağını göstersin.
+Yeni görünüm: baştan tasarlandı. Daha okunaklı büyük yazılar, daha rahat basılan düğmeler, deniz haritası temalı renkler (coin, hisse ve altın için ayrı tonlar) ve yenilenmiş koyu tema. Tutar alanlarına yazarken binlik noktası kendiliğinden konuyor (10.000 gibi).

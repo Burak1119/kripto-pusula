@@ -27,7 +27,7 @@ page = f"""<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0e5a50">
+<meta name="theme-color" content="#E8EFF2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Kripto Pusula">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -55,7 +55,7 @@ note = notes_file.read_text(encoding="utf-8").strip() if notes_file.exists() els
 (pub / "manifest.webmanifest").write_text(json.dumps({
     "name": "Kripto Pusula", "short_name": "Pusula", "lang": "tr",
     "start_url": "/", "display": "standalone",
-    "background_color": "#0d1514", "theme_color": "#0e5a50",
+    "background_color": "#E8EFF2", "theme_color": "#E8EFF2",
     "icons": [
         {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
         {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
@@ -73,7 +73,7 @@ names = "analyze, newsContext, buildStockWorld, watchMessages, alertsRun, alertH
     encoding="utf-8")
 
 (pub / "sw.js").write_text("""// Önce ağ, olmazsa önbellek: çevrimdışıyken son görülen ekran açılır.
-const NAME = 'kripto-pusula-v6';
+const NAME = 'kripto-pusula-v7';
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(NAME).then((c) => c.addAll(['/']))); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== NAME).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 // Sunucudan gelen boş "dürtme": asıl bildirim metnini sunucudan alıp gösterir (iPhone her dürtmede bildirim gösterilmesini şart koşar).

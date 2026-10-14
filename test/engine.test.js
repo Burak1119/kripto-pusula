@@ -88,11 +88,15 @@ const E3 = new Function(code + '; return { buildStockWorld, makeDemoStocks, make
   ok(w2.items.length === 6 && w2.items.every((x) => x.a.signal === 'VERİ YOK' && x.price === null) && w2.info.analyzed === 0, 'hiç veri yokken de çökmüyor, "VERİ YOK" gösteriyor');
 }
 // Portföy hesapları
-const E4 = new Function(code + '; return { parseNumTr, portEncode, portDecode, portCalc, portSummary, buildStockWorld, makeDemoStocks, makeDemoStockNews };')();
+const E4 = new Function(code + '; return { parseNumTr, groupNum, numField, portEncode, portDecode, portCalc, portSummary, buildStockWorld, makeDemoStocks, makeDemoStockNews };')();
 {
   ok(E4.parseNumTr('0,05') === 0.05 && E4.parseNumTr('0.05') === 0.05, 'sayı okuma: 0,05 ve 0.05');
   ok(E4.parseNumTr('1.234.567,89') === 1234567.89 && E4.parseNumTr('1,234,567.89') === 1234567.89, 'sayı okuma: binlik ayraçlı');
   ok(E4.parseNumTr('₺ 12,5') === 12.5 && E4.parseNumTr('') === null && E4.parseNumTr('abc') === null && E4.parseNumTr('-3') === null, 'sayı okuma: simge, boş, bozuk, negatif');
+  ok(E4.parseNumTr('10.000') === 10000 && E4.parseNumTr('1.234') === 1234 && E4.parseNumTr('100.000') === 100000 && E4.parseNumTr('0.500') === 0.5 && E4.parseNumTr('12.5') === 12.5, 'sayı okuma: 10.000 binlik, 0.500 ve 12.5 ondalık');
+  ok(E4.groupNum('10000') === '10.000' && E4.groupNum('1234567,5') === '1.234.567,5' && E4.groupNum('0,05') === '0,05' && E4.groupNum('007') === '7' && E4.groupNum('5,') === '5,' && E4.groupNum('1.0000') === '10.000' && E4.groupNum('abc') === '' && E4.groupNum('1,2,3') === '1,23', 'binlik biçimi: gruplama, ondalık virgül, baştaki sıfır, fazla nokta/virgül');
+  ok(E4.numField(10000) === '10.000' && E4.numField(0.05) === '0,05' && E4.numField('10000') === '10.000' && E4.numField('0.5') === '0,5' && E4.numField('') === '' && E4.numField(null) === '' && E4.numField(1234567.891) === '1.234.567,891', 'alana yazılacak sayı: binlik noktalı');
+  ok([0, 5, 999, 1000, 12345, 123456789.25, 0.000123].every((n) => E4.parseNumTr(E4.numField(n)) === n), 'biçimlenen sayı geri aynen okunuyor');
   const list = [
     { u: 'a', kind: 'coin', id: 'bitcoin', sym: 'btc', name: 'Bitcoin', qty: 0.0002, cost: 3000000, ccy: 'TRY', src: 'Binance', est: false },
     { u: 'b', kind: 'coin', id: 'ripple', sym: 'xrp', name: 'XRP', qty: 10, cost: null, ccy: 'TRY', src: 'Midas', est: true },

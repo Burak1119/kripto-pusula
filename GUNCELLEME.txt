@@ -1,1 +1,1 @@
-Yeni: Altın bölümünde çeyrek, yarım, tam, Ata, ons ve 22/18/14 ayar altın da var; portföye eklenebilir.
+Yeni: altın ve döviz kalemlerinin kendi simgeleri var (külçe, madeni para, bilezik, dolar, euro).

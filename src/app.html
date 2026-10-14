@@ -326,6 +326,8 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 @container (min-width: 540px) { .row.prow { grid-template-columns: minmax(0, 1fr) 190px 90px 100px; } .row.prow .sig { grid-column: auto; } }
 .rnote.warn { background: var(--warn-bg); color: var(--ink); padding: 8px 12px; border-radius: 10px; }
 .av.logo { background: var(--surface2); }
+.av.fxi { background: none; overflow: visible; width: 42px; height: 42px; }
+.av.fxi svg { width: 100%; height: 100%; display: block; }
 .av.logo img { object-fit: contain; padding: 4px; background: #fff; }
 
 /* portföy */
@@ -1204,8 +1206,24 @@ window.imgFail = imgFail;
 const isStock = (it) => it.kind === 'stock';
 const pm = (it, v) => money(v, isStock(it) ? it.cur : it.fx);
 const short = (it) => esc(String(it.symbol).slice(0, 3).toUpperCase());
+// Altın ve döviz simgeleri (kendi çizimimiz): külçe, madeni para, bilezik, dolar ve euro rozeti.
+function fxIcon(id) {
+  const G1 = '#fde68a', G2 = '#f59e0b', G3 = '#b45309', INK = '#7c4a03';
+  const defs = `<defs><linearGradient id="gg${id.length}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${G1}"/><stop offset=".55" stop-color="${G2}"/><stop offset="1" stop-color="${G3}"/></linearGradient></defs>`;
+  const grad = `url(#gg${id.length})`;
+  const coin = (r, t, fs) => `${defs}<circle cx="20" cy="20" r="${r}" fill="${grad}" stroke="${G3}" stroke-width="1.2"/><circle cx="20" cy="20" r="${r - 3}" fill="none" stroke="${INK}" stroke-opacity=".45" stroke-width="1"/><text x="20" y="${20 + fs * 0.36}" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="${fs}" fill="${INK}">${t}</text>`;
+  const bar = (lab) => `${defs}<path d="M7 27 L12 14 H28 L33 27 Z" fill="${grad}" stroke="${G3}" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 14 L14 18 H26 L28 14" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/>${lab ? `<text x="20" y="25" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="7" fill="${INK}">${lab}</text>` : ''}`;
+  const ring = (k) => `${defs}<circle cx="20" cy="20" r="13" fill="none" stroke="${grad}" stroke-width="6"/><circle cx="20" cy="20" r="16" fill="none" stroke="${G3}" stroke-opacity=".6" stroke-width=".8"/><circle cx="20" cy="20" r="10" fill="none" stroke="${G3}" stroke-opacity=".6" stroke-width=".8"/><text x="20" y="23" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="8" fill="${INK}">${k}</text>`;
+  const badge = (bg, t) => `<circle cx="20" cy="20" r="17" fill="${bg}"/><circle cx="20" cy="20" r="14" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1"/><text x="20" y="27" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="20" fill="#fff">${t}</text>`;
+  const m = {
+    'fx:gold': bar(''), 'fx:ons': bar('OZ'), 'fx:ceyrek': coin(12, '¼', 15), 'fx:yarim': coin(14, '½', 16), 'fx:tam': coin(17, '1', 15),
+    'fx:ata': `${coin(17, '', 12)}<path d="M20 9 L22.4 16.4 L30 16.4 L23.8 21 L26.2 28.4 L20 23.8 L13.8 28.4 L16.2 21 L10 16.4 L17.6 16.4 Z" fill="${INK}" fill-opacity=".75"/>`,
+    'fx:22': ring('22'), 'fx:18': ring('18'), 'fx:14': ring('14'), 'fx:usd': badge('#15803d', '$'), 'fx:eur': badge('#1d4ed8', '€'),
+  };
+  return `<svg viewBox="0 0 40 40" aria-hidden="true">${m[id] || badge('#64748b', '?')}</svg>`;
+}
 function avatar(it) {
-  if (it.kind === 'fx') return `<span class="av">${esc(it.av || '?')}</span>`;
+  if (it.kind === 'fx') return `<span class="av fxi">${fxIcon(it.id)}</span>`;
   if (isStock(it)) return `<span class="av logo">${short(it)}${it.dom ? `<img src="${esc(favUrl(it.dom))}" data-d="${esc(it.dom)}" data-f="0" alt="" loading="lazy" onload="this.classList.add('ok')" onerror="imgFail(this)">` : ''}</span>`;
   return `<span class="av">${short(it)}<img src="${esc(it.image || iconUrl(it.symbol))}" data-s="${esc(String(it.symbol))}" data-f="${it.image ? '0' : '1'}" alt="" loading="lazy" onload="this.classList.add('ok')" onerror="imgFail(this)"></span>`;
 }

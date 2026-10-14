@@ -1,6 +1,6 @@
 """src/app.html dosyasını tam bir web sayfasına (public/index.html) çevirir,
 PWA dosyalarını (manifest, service worker, ikonlar) üretir."""
-import re, json, pathlib
+import re, json, pathlib, hashlib
 from PIL import Image, ImageDraw
 
 root = pathlib.Path(__file__).parent
@@ -44,6 +44,12 @@ page = f"""<!doctype html>
 </body>
 </html>
 """
+# Sürüm numarası: sayfanın içeriğinden. Uygulama açıkken /version.json ile karşılaştırıp "yeni güncelleme" bildirir.
+build_id = hashlib.sha1(page.encode("utf-8")).hexdigest()[:10]
+page = page.replace("<body>", "<body>\n<script>window.KP_BUILD=" + json.dumps(build_id) + ";</script>", 1)
+notes_file = root / "GUNCELLEME.txt"
+note = notes_file.read_text(encoding="utf-8").strip() if notes_file.exists() else ""
+(pub / "version.json").write_text(json.dumps({"v": build_id, "note": note}, ensure_ascii=False), encoding="utf-8")
 (pub / "index.html").write_text(page, encoding="utf-8")
 
 (pub / "manifest.webmanifest").write_text(json.dumps({

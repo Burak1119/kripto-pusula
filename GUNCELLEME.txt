@@ -1,0 +1,1 @@
+Geçen güncellemeden beri: bildirime tıklayınca ilgili coin/hisse açılıyor, fiyat grafiğinde saat/gün/hafta/ay/yıl dönemleri ve canlı takip var, portföye tutar (TL) yazarak ekleyebilirsin.

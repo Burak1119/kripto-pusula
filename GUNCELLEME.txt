@@ -1,1 +1,1 @@
-Düzeltme: Altın ve döviz düğmeleri artık Portföy → Ekle ekranında arama kutusunun hemen altında.
+Yeni: Altın ve Döviz bölümü: gram altın, dolar, euro fiyatları, dönem grafikleri ve kendi portföyün. Giriş ekranında ve üstteki düğmelerde.

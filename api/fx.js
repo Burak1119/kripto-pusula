@@ -1,6 +1,6 @@
 // Döviz kuru: 1 doların ve 1 euronun kaç lira ettiği. Önce CoinGecko'daki Tether fiyatından (dolara bağlı),
 // olmazsa açık bir kur servisinden okunur. Kur bulunamazsa uygulama tek toplam göstermez, geri kalanı etkilenmez.
-const TTL = 10 * 60 * 1000;
+const TTL = 2 * 60 * 1000;
 let cache = { ts: 0, data: null };
 
 async function getJson(url) {
@@ -34,7 +34,7 @@ async function gold() {
 async function handler(req, res) {
   res.setHeader('content-type', 'application/json; charset=utf-8');
   res.setHeader('access-control-allow-origin', '*');
-  res.setHeader('cache-control', 'public, s-maxage=600, stale-while-revalidate=1800');
+  res.setHeader('cache-control', 'public, s-maxage=120, stale-while-revalidate=600');
   if (!cache.data || Date.now() - cache.ts > TTL) {
     let d = null;
     for (const f of [fromGecko, fromOpen]) { try { d = await f(); break; } catch (e) { /* sıradaki kaynak */ } }

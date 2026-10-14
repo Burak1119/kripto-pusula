@@ -1,6 +1,6 @@
 // Tek bir coin veya hisse için seçilen dönemin fiyat çizgisi.
 // Coin: Binance herkese açık mum verisi (SYMBOLUSDT). Hisse: Yahoo Finance grafik verisi. Anahtar gerekmez.
-// GET /api/chart?k=c&sym=BTC&p=1g   |   GET /api/chart?k=s&sym=THYAO&mk=bist&p=1a
+// k=f: döviz kuru (sym=USD ya da EUR, Yahoo'daki USDTRY=X gibi). GET /api/chart?k=c&sym=BTC&p=1g   |   GET /api/chart?k=s&sym=THYAO&mk=bist&p=1a
 // p: 1s (1 saat), 1g (1 gün), 1h (1 hafta), 1a (1 ay), 3a (3 ay), 1y (1 yıl)
 const BINANCE = { '1s': ['1m', 60], '1g': ['5m', 288], '1h': ['1h', 168], '1a': ['4h', 180], '3a': ['1d', 90], '1y': ['1d', 365] };
 const YAHOO = { '1s': ['1d', '1m', 60], '1g': ['1d', '5m', 0], '1h': ['5d', '30m', 0], '1a': ['1mo', '60m', 0], '3a': ['3mo', '1d', 0], '1y': ['1y', '1d', 0] };
@@ -39,13 +39,13 @@ async function stock(sym, mk, p) {
 
 async function handler(req, res) {
   const u = new URL(req.url || '/', 'http://x'), q = u.searchParams;
-  const k = q.get('k') === 's' ? 's' : 'c', p = q.get('p') || '1h', mk = ['us', 'bist', 'eu'].includes(q.get('mk')) ? q.get('mk') : 'us';
+  const k = q.get('k') === 's' ? 's' : q.get('k') === 'f' ? 'f' : 'c', p = q.get('p') || '1h', mk = ['us', 'bist', 'eu'].includes(q.get('mk')) ? q.get('mk') : 'us';
   const sym = String(q.get('sym') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '').slice(0, 15);
-  if (!sym || !BINANCE[p]) return out(res, 400, { error: 'Geçersiz istek' }, p);
+  if (!sym || !BINANCE[p] || (k === 'f' && sym !== 'USD' && sym !== 'EUR')) return out(res, 400, { error: 'Geçersiz istek' }, p);
   const key = [k, sym, mk, p].join('|'), hit = cache.get(key);
   if (hit && Date.now() - hit.ts < (TTL[p] || 30) * 1000) return out(res, 200, hit.v, p);
   try {
-    const rows = k === 'c' ? await coin(sym.replace(/[^A-Z0-9]/g, ''), p) : await stock(sym, mk, p);
+    const rows = k === 'c' ? await coin(sym.replace(/[^A-Z0-9]/g, ''), p) : k === 'f' ? await stock(sym + 'TRY=X', 'us', p) : await stock(sym, mk, p);
     if (rows.length < 2) throw new Error('veri yok');
     const v = { p, updated: Date.now(), t: rows.map((r) => r[0]), v: rows.map((r) => Number(r[1].toPrecision(7))) };
     if (cache.size > 300) cache.clear();

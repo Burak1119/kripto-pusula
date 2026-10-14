@@ -22,6 +22,15 @@ async function fromOpen() {
   return { USD: r.TRY, EUR: r.TRY / r.EUR, src: 'er-api' };
 }
 
+// Ons altın fiyatı (dolar): Binance'teki PAXG (altına bağlı token) fiyatından; 24 saatlik değişimiyle. Alınamazsa null, kur etkilenmez.
+async function gold() {
+  try {
+    const j = await getJson('https://data-api.binance.vision/api/v3/ticker/24hr?symbol=PAXGUSDT');
+    const p = Number(j.lastPrice), c = Number(j.priceChangePercent);
+    return good(p) ? { usdOz: p, chg: isFinite(c) ? c : null } : null;
+  } catch (e) { return null; }
+}
+
 async function handler(req, res) {
   res.setHeader('content-type', 'application/json; charset=utf-8');
   res.setHeader('access-control-allow-origin', '*');
@@ -29,11 +38,11 @@ async function handler(req, res) {
   if (!cache.data || Date.now() - cache.ts > TTL) {
     let d = null;
     for (const f of [fromGecko, fromOpen]) { try { d = await f(); break; } catch (e) { /* sıradaki kaynak */ } }
-    if (d) cache = { ts: Date.now(), data: d };
+    if (d) cache = { ts: Date.now(), data: { ...d, gold: await gold() } };
     else if (!cache.data) { res.statusCode = 502; res.end(JSON.stringify({ error: 'kur alınamadı' })); return; }
   }
   const d = cache.data;
-  res.end(JSON.stringify({ updated: cache.ts, TRY: 1, USD: d.USD, EUR: d.EUR, src: d.src }));
+  res.end(JSON.stringify({ updated: cache.ts, TRY: 1, USD: d.USD, EUR: d.EUR, src: d.src, gold: d.gold || null }));
 }
 module.exports = handler;
 module.exports._reset = () => { cache = { ts: 0, data: null }; };

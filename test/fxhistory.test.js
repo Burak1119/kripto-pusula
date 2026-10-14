@@ -6,6 +6,7 @@ global.fetch = async (url) => {
     if (mode === 'gecko') return { ok: true, status: 200, json: async () => ({ tether: { usd: 1.0004, try: 41.2, eur: 0.8645 } }) };
     return { ok: false, status: 429, json: async () => ({}) };
   }
+  if (url.includes('ticker/24hr')) return { ok: true, status: 200, json: async () => ({ lastPrice: '2700.50', priceChangePercent: '0.8' }) };
   if (url.includes('open.er-api')) return { ok: true, status: 200, json: async () => ({ rates: { TRY: 41.0, EUR: 0.86 } }) };
   if (url.includes('klines')) {
     if (url.includes('symbol=FAILUSDT')) return { ok: false, status: 400, json: async () => ({}) };
@@ -22,6 +23,7 @@ const mk = () => ({ h: {}, setHeader(k, v) { this.h[k] = v; }, end(b) { this.bod
   await fx({ url: '/api/fx' }, r);
   let j = JSON.parse(r.body);
   assert(Math.abs(j.USD - 41.2 / 1.0004) < 1e-9 && Math.abs(j.EUR - 41.2 / 0.8645) < 1e-9 && j.TRY === 1 && j.src === 'coingecko');
+  assert(j.gold && j.gold.usdOz === 2700.5 && j.gold.chg === 0.8);
   console.log('ok   fx: dolar ve euro kuru Tether fiyatından hesaplandı (' + j.USD.toFixed(2) + ' / ' + j.EUR.toFixed(2) + ')');
   fx._reset(); mode = 'down'; r = mk();
   await fx({ url: '/api/fx' }, r);

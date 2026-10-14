@@ -369,7 +369,7 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 </style>
 </head>
 <body>
-<script>window.KP_BUILD="a774a97ddc";</script>
+<script>window.KP_BUILD="a254507a61";</script>
 <div id="app">
   <header class="top">
     <button class="brand" data-kind="choose" aria-label="Başa dön: Coin mi Hisse mi seç">
@@ -863,7 +863,7 @@ function parseNumTr(s) {
 }
 // Portföyü tek satırlık koda çevirir (bağlantıya ya da kopyala-yapıştır koduna konur).
 function portEncode(list) {
-  const rows = list.map((h) => [h.kind === 'coin' ? 'c' : 's', h.id, h.sym, h.name, h.qty, h.cost === undefined ? null : h.cost, h.ccy, h.src || '', h.est ? 1 : 0, Array.isArray(h.tx) && h.tx.length ? h.tx.map((x) => [x.t, x.q, num(x.p), x.d || '']) : 0, h.grp || '']);
+  const rows = list.map((h) => [h.kind === 'coin' ? 'c' : h.kind === 'fx' ? 'f' : 's', h.id, h.sym, h.name, h.qty, h.cost === undefined ? null : h.cost, h.ccy, h.src || '', h.est ? 1 : 0, Array.isArray(h.tx) && h.tx.length ? h.tx.map((x) => [x.t, x.q, num(x.p), x.d || '']) : 0, h.grp || '']);
   return btoa(unescape(encodeURIComponent(JSON.stringify(rows)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function portDecode(code) {
@@ -881,8 +881,8 @@ function portDecode(code) {
       let tx = null;
       if (Array.isArray(txr)) tx = txr.slice(0, 300).map((x) => (Array.isArray(x) && (x[0] === 'b' || x[0] === 's') && typeof x[1] === 'number' && x[1] > 0 ? { t: x[0], q: x[1], p: typeof x[2] === 'number' && x[2] >= 0 ? x[2] : null, d: String(x[3] || '').slice(0, 10) || null } : null));
       if (tx && (tx.includes(null) || !txApply(tx).ok)) tx = null;
-      if ((k !== 'c' && k !== 's') || typeof id !== 'string' || !id || !(tx || (typeof qty === 'number' && qty > 0 && isFinite(qty)))) continue;
-      const h = { u: 'h' + stamp + out.length, kind: k === 'c' ? 'coin' : 'stock', id: id.slice(0, 80), sym: String(sym || '').slice(0, 15), name: String(name || '').slice(0, 60), qty,
+      if ((k !== 'c' && k !== 's' && k !== 'f') || typeof id !== 'string' || !id || !(tx || (typeof qty === 'number' && qty > 0 && isFinite(qty)))) continue;
+      const h = { u: 'h' + stamp + out.length, kind: k === 'c' ? 'coin' : k === 'f' ? 'fx' : 'stock', id: id.slice(0, 80), sym: String(sym || '').slice(0, 15), name: String(name || '').slice(0, 60), qty,
         cost: typeof cost === 'number' && isFinite(cost) && cost >= 0 ? cost : null, ccy: ['TRY', 'USD', 'EUR'].includes(ccy) ? ccy : 'TRY', src: String(src || '').slice(0, 20), est: !!est };
       if (typeof grp === 'string' && grp.trim()) h.grp = grp.trim().slice(0, 20);
       if (tx) txCommit(h, tx);
@@ -1148,7 +1148,7 @@ const S = {
   q: '', filter: 'hepsi', sort: 'mcap', mk: 'hepsi', shown: 40, sel: null,
   ex: null, canon: {}, rq: '', rshown: 30, ropen: null, rfilter: 'hepsi', bootP: null,
   port: store.get('port', []), pcoins: {}, pat: 0, pfail: false, pimport: null, pimp: '', flash: '', ppick: null, psel: null, pdel: false,
-  fx: null, fxAt: 0, pcur: store.get('pcur', 'TRY'), prevSig: store.get('sig', {}),
+  fx: null, gold: null, pfx: {}, fxAt: 0, pcur: store.get('pcur', 'TRY'), prevSig: store.get('sig', {}),
   bt: { stock: null, stockAt: 0, coin: null, busy: false, err: false },
   notifOn: store.get('notif', false), installEv: null, tipHide: store.get('tip', false),
   alerts: store.get('alerts', []), push: { ready: null, key: null, on: false, err: '', test: '', inited: false },
@@ -1195,6 +1195,7 @@ const isStock = (it) => it.kind === 'stock';
 const pm = (it, v) => money(v, isStock(it) ? it.cur : it.fx);
 const short = (it) => esc(String(it.symbol).slice(0, 3).toUpperCase());
 function avatar(it) {
+  if (it.kind === 'fx') return `<span class="av">${esc(it.id === 'fx:gold' ? 'Au' : it.id === 'fx:usd' ? '$' : '€')}</span>`;
   if (isStock(it)) return `<span class="av logo">${short(it)}${it.dom ? `<img src="${esc(favUrl(it.dom))}" data-d="${esc(it.dom)}" data-f="0" alt="" loading="lazy" onload="this.classList.add('ok')" onerror="imgFail(this)">` : ''}</span>`;
   return `<span class="av">${short(it)}<img src="${esc(it.image || iconUrl(it.symbol))}" data-s="${esc(String(it.symbol))}" data-f="${it.image ? '0' : '1'}" alt="" loading="lazy" onload="this.classList.add('ok')" onerror="imgFail(this)"></span>`;
 }
@@ -1214,7 +1215,7 @@ function W() {
   if (S.kind === 'stock') return { st: true, items: S.sitems, info: S.sinfo, mode: S.smode, updated: S.supdated, ready: S.sstate === 'ready', news: S.sinfo ? S.sinfo.ctx.scored : [] };
   return { st: false, items: S.coins, info: S.info, mode: S.mode, updated: S.updated, ready: !!S.info, news: S.info ? S.info.ctx.scored : [] };
 }
-const byId = (id) => S.coins.find((c) => c.id === id) || S.sitems.find((c) => c.id === id) || S.pcoins[id] || null;
+const byId = (id) => S.coins.find((c) => c.id === id) || S.sitems.find((c) => c.id === id) || S.pcoins[id] || (S.pfx && S.pfx[id]) || null;
 function notReady(w) {
   if (w.st && S.sstate === 'error') return '<div class="empty">Hisse verisine ulaşılamadı.<br><button class="btn retry" id="stretry">Tekrar dene</button></div>';
   return `<div class="loading">${w.st ? 'Hisse verisi yükleniyor… İlk açılışta yarım dakika sürebilir.' : 'Piyasa taranıyor…'}</div>`;
@@ -1507,7 +1508,7 @@ const fmtQty = (q) => new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 8 
 const inNum = (n) => (n === null || n === undefined ? '' : n.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 10 }).replace('.', ','));
 const portCode = () => 'kp1.' + portEncode(S.port);
 const savePort = () => store.set('port', S.port);
-function holdItem(h) { return h.kind === 'coin' ? S.pcoins[h.id] || null : S.sitems.find((x) => x.id === h.id) || null; }
+function holdItem(h) { return h.kind === 'coin' ? S.pcoins[h.id] || null : h.kind === 'fx' ? (S.pfx && S.pfx[h.id]) || null : S.sitems.find((x) => x.id === h.id) || null; }
 async function loadPortCoins() {
   S.pat = Date.now();
   const hs = S.port.filter((h) => h.kind === 'coin');
@@ -1612,7 +1613,7 @@ async function syncPush() {
   if (!S.push.on) return;
   try {
     const sub = await pushSub(false); if (!sub) { S.push.on = false; return; }
-    const watch = S.port.filter((h) => h.qty > 0).map((h) => ({ k: h.kind === 'coin' ? 'c' : 's', id: h.id, sym: h.sym, name: h.name }));
+    const watch = S.port.filter((h) => h.qty > 0 && h.kind !== 'fx').map((h) => ({ k: h.kind === 'coin' ? 'c' : 's', id: h.id, sym: h.sym, name: h.name }));
     const r = await postJson('/api/push?a=sync', { sub: sub.toJSON(), watch, alerts: S.alerts });
     const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.error || r.status);
     let ch = false;
@@ -1718,6 +1719,14 @@ function riskHtml(rows, cur) {
     <ul class="why">${k.why.map((r) => `<li class="${r.pos === true ? 'p' : r.pos === false ? 'n' : ''}">${esc(r.t)}</li>`).join('')}</ul>
     <p class="rnote" style="margin:6px 0 0">Varlıkların kendi risk seviyesinden, dağılımdan ve sinyallerden hesaplanır. Yatırım tavsiyesi değildir.</p></section>`;
 }
+// Altın ve döviz: coin/hisse toplamından ayrı, kendi toplamıyla (hep TL).
+function fxPanel() {
+  const rows = holdRows('fx'); if (!rows.length) return '';
+  const g = portSummary(rows)[0];
+  return `<section class="panel" style="margin-top:14px"><h2>Altın ve döviz</h2>${g ? groupHtml(g, false) : ''}
+    <div class="rows" style="margin-top:8px">${rows.map((r) => `<div class="pwrap">${prow(r)}</div>`).join('')}</div>
+    <p class="rnote" style="margin:10px 0 0">Gram altın, Binance'teki altına bağlı token fiyatından (ons) ve dolar kurundan yaklaşık hesaplanır; kuyumcu ya da banka fiyatından biraz farklı olabilir. Bu bölüm yukarıdaki coin/hisse toplamına katılmaz.</p></section>`;
+}
 function viewPortfoy() {
   const w = W(); if (!w.ready) return notReady(w);
   const kind = w.st ? 'stock' : 'coin', rows = holdRows(kind);
@@ -1759,7 +1768,7 @@ function viewPortfoy() {
     <label>Başka cihazdan gelen kodu yapıştır<textarea id="pimp" rows="3" placeholder="kp1. ile başlayan kod">${esc(S.pimp)}</textarea></label>
     <div class="acts"><button class="btn" id="pdoimp">İçe aktar</button></div><div class="err" id="pimperr"></div>
     <span class="hint">İçe aktarınca bu cihazdaki portföy kodla değiştirilir.</span></div></section>`;
-  return head + fail + body + closedP + alertsPanel(kind) + notifPanel() + backup;
+  return head + fail + body + fxPanel() + closedP + alertsPanel(kind) + notifPanel() + backup;
 }
 function showSheet(html, label) {
   $('#sheet').setAttribute('aria-label', label); $('#sheet').innerHTML = html; $('#scrim').hidden = false; S.sel = null;
@@ -1769,23 +1778,24 @@ function formHtml(it, h) {
   const stk = isStock(it), cur = stk ? it.cur : 'TRY', sym = String(stk ? it.symbol : it.symbol).toUpperCase();
   const qtyBlock = h && h.tx
     ? `<div class="sub">Miktar <b class="num">${fmtQty(h.qty)}</b> · ortalama maliyet <b class="num">${num(h.cost) !== null ? money(h.cost, cur) : 'bilinmiyor'}</b><br>Bunlar aşağıdaki işlemlerden hesaplanır. Düzeltmek için işlem ekle ya da sil.</div>`
-    : `<label>Miktar (kaç ${stk ? 'adet hisse' : esc(sym)})<input id="pqty" inputmode="decimal" autocomplete="off" placeholder="örn. 0,05" value="${h ? esc(inNum(h.qty)) : ''}"><span class="hint" id="pqprev"></span></label>
+    : `<label>Miktar (${it.kind === 'fx' ? (it.id === 'fx:gold' ? 'kaç gram altın' : 'kaç ' + esc(it.name)) : 'kaç ' + (stk ? 'adet hisse' : esc(sym))})<input id="pqty" inputmode="decimal" autocomplete="off" placeholder="örn. 0,05" value="${h ? esc(inNum(h.qty)) : ''}"><span class="hint" id="pqprev"></span></label>
       <label>Ya da kaç ${curSym(cur)} tutarında aldın? (miktarı ben hesaplarım)<input id="pamt" inputmode="decimal" autocomplete="off" placeholder="örn. 5000"><span class="hint" id="pahint"></span></label>
       <label>Ortalama alış fiyatı, tane başına (${curSym(cur)}) · boş bırakılabilir<input id="pcost" inputmode="decimal" autocomplete="off" placeholder="bilmiyorsan boş bırak" value="${h ? esc(inNum(h.cost)) : ''}"><span class="hint" id="pcprev"></span></label>`;
   return `<div class="who" style="margin-top:6px">${avatar(it)}<span class="nm"><b>${esc(it.name)}</b><span>${esc(sym)}${h ? '' : ' · ' + money(it.price, cur)}</span></span></div>
     <div class="pfform">
       ${qtyBlock}
       <label>Grup · isteğe bağlı (örn. Uzun vade)<input id="pgrp" list="pgrps" maxlength="20" autocomplete="off" placeholder="grupsuz" value="${h && h.grp ? esc(h.grp) : ''}"><datalist id="pgrps">${[...new Set(S.port.map((x) => x.grp).filter(Boolean))].map((g) => `<option value="${esc(g)}">`).join('')}</datalist></label>
-      <label>Nerede tutuyorsun<select id="psrc">${srcOpts(h ? h.src : stk ? 'Midas' : 'Binance')}</select></label>
+      <label>Nerede tutuyorsun<select id="psrc">${srcOpts(h ? h.src : it.kind === 'fx' ? 'Diğer' : stk ? 'Midas' : 'Binance')}</select></label>
       ${h && h.est && !h.tx ? '<div class="hint">Bu miktar yaklaşık: ekranda miktar görünmediği için fiyattan hesaplandı. Kesin miktarı bilirsen düzelt.</div>' : ''}
       <div class="err" id="perr"></div>
-      <div class="acts"><button class="btn primary" id="${h ? 'pupd' : 'psave'}">Kaydet</button>${h ? `<button class="btn" id="pdet">Ayrıntıları aç</button><button class="btn danger" id="pdel">Sil</button>` : ''}</div>
+      <div class="acts"><button class="btn primary" id="${h ? 'pupd' : 'psave'}">Kaydet</button>${h ? `${h.kind === 'fx' ? '' : '<button class="btn" id="pdet">Ayrıntıları aç</button>'}<button class="btn danger" id="pdel">Sil</button>` : ''}</div>
     </div>${h ? txSection(h) : ''}`;
 }
 function openPortAdd() {
   const w = W(); S.ppick = null; S.psel = null; S.pdel = false;
   showSheet(`<div class="sh-head"><span class="nm"><h3>Portföye ekle</h3><span>${w.st ? 'Hisse' : 'Coin'} seç</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
     <div class="bar"><input id="pq" type="search" autocomplete="off" placeholder="${w.st ? 'Hisse ara (ör. thy, apple)' : 'Coin ara (ör. bitcoin, xrp)'}" aria-label="Ara"></div><div id="pres" class="rows"></div><div id="pform"></div>
+    ${Object.keys(S.pfx || {}).length ? `<div id="pfxbox"><div class="sub" style="margin:10px 0 4px">Altın ve döviz</div><div class="chips">${Object.values(S.pfx).map((x) => `<button class="chip" data-ppick="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>` : ''}
     ${w.st ? '' : '<p class="rnote">Yalnızca piyasa değerine göre ilk 500 coin aranabilir. Listede olmayan bir coini eklemek istersen bana söyle.</p>'}`, 'Portföye ekle');
   fillPres(); $('#pq').focus();
 }
@@ -1796,7 +1806,7 @@ function fillPres() {
 }
 function pickItem(id) {
   const it = byId(id); if (!it) return;
-  S.ppick = id; $('#pres').innerHTML = ''; $('#pq').closest('.bar').hidden = true; $('#pform').innerHTML = formHtml(it, null); $('#pqty').focus();
+  S.ppick = id; $('#pres').innerHTML = ''; $('#pq').closest('.bar').hidden = true; if ($('#pfxbox')) $('#pfxbox').hidden = true; $('#pform').innerHTML = formHtml(it, null); $('#pqty').focus();
 }
 function openPortEdit(u) {
   const h = S.port.find((x) => x.u === u); if (!h) return;
@@ -1854,10 +1864,21 @@ const DEMO_PORT = [['c', 'bitcoin', 'btc', 'Bitcoin', 0.02, 50000, 'TRY', 'Binan
   ['s', 'bist:THYAO', 'THYAO', 'Türk Hava Yolları', 2, 250, 'TRY', 'Midas', 0], ['s', 'bist:ASELS', 'ASELS', 'Aselsan', 10, 100, 'TRY', 'Midas', 0], ['s', 'us:AAPL', 'AAPL', 'Apple', 3, 170, 'USD', 'Midas', 0]];
 
 /* ---------- Kur, bildirim, yükleme ipucu ---------- */
+// Altın ve döviz kalemleri (hep TL cinsinden). Gram altın = ons fiyatı ÷ 31,1035 × dolar kuru.
+function buildFxItems() {
+  const f = S.fx, o = {};
+  if (f) {
+    const mk = (id, name, symbol, price, c24) => ({ id, kind: 'fx', name, symbol, price, c24, c7: null, c30: null, cur: 'TRY', fx: 'TRY', spark: [], image: '', dom: '', a: { signal: 'DÖVİZ', cls: 's-stable', score: 0, risk: null, st: null, reasons: [] } });
+    if (S.gold) o['fx:gold'] = mk('fx:gold', 'Gram altın', 'gram', (S.gold.usdOz / 31.1035) * f.USD, num(S.gold.chg));
+    o['fx:usd'] = mk('fx:usd', 'Amerikan doları', 'USD', f.USD, null);
+    o['fx:eur'] = mk('fx:eur', 'Euro', 'EUR', f.EUR, null);
+  }
+  S.pfx = o;
+}
 async function loadFx() {
-  if (S.mode === 'demo') { S.fx = { TRY: 1, USD: 41, EUR: 47.5 }; return; }
+  if (S.mode === 'demo') { S.fx = { TRY: 1, USD: 41, EUR: 47.5 }; S.gold = { usdOz: 2700, chg: 0.4 }; buildFxItems(); return; }
   if (S.fx && Date.now() - S.fxAt < 600000) return;
-  try { const j = await getJson('/api/fx', 10000); if (j && j.USD > 0 && j.EUR > 0) { S.fx = { TRY: 1, USD: j.USD, EUR: j.EUR }; S.fxAt = Date.now(); } } catch (e) { /* kur yoksa tek toplam gösterilmez */ }
+  try { const j = await getJson('/api/fx', 10000); if (j && j.USD > 0 && j.EUR > 0) { S.fx = { TRY: 1, USD: j.USD, EUR: j.EUR }; S.gold = j.gold && j.gold.usdOz > 0 ? j.gold : null; S.fxAt = Date.now(); buildFxItems(); } } catch (e) { /* kur yoksa tek toplam gösterilmez */ }
 }
 async function notify(title, body, tag, data) {
   try {
@@ -1978,7 +1999,7 @@ function chartInner(c) {
 const chartPanel = (c) => `<section class="panel" id="cpanel">${chartInner(c)}</section>`;
 
 function openSheet(id) {
-  const c = byId(id); if (!c) return;
+  const c = byId(id); if (!c || c.kind === 'fx') return;
   S.sel = id; chartStart(c);
   const stk = isStock(c), a = c.a, st = a.st, isFav = S.favs.includes(id);
   const noScore = a.signal === 'STABİL' || a.signal === 'VERİ YOK';
@@ -2220,7 +2241,7 @@ document.addEventListener('click', (e) => {
     if (t.id === 'psave') {
       const it = byId(S.ppick); if (!it) return;
       const stk = isStock(it);
-      S.port.push({ u: 'h' + Date.now().toString(36) + S.port.length, kind: stk ? 'stock' : 'coin', id: it.id, sym: String(it.symbol), name: it.name, qty: f.qty, cost: f.cost, ccy: stk ? it.cur : 'TRY', src: f.src, est: false, ...(f.grp ? { grp: f.grp } : {}) });
+      S.port.push({ u: 'h' + Date.now().toString(36) + S.port.length, kind: it.kind === 'fx' ? 'fx' : stk ? 'stock' : 'coin', id: it.id, sym: String(it.symbol), name: it.name, qty: f.qty, cost: f.cost, ccy: stk ? it.cur : 'TRY', src: f.src, est: false, ...(f.grp ? { grp: f.grp } : {}) });
     } else {
       const h = S.port.find((x) => x.u === S.psel); if (!h) return;
       if (f.grp !== undefined) { if (f.grp) h.grp = f.grp; else delete h.grp; }

@@ -1780,8 +1780,9 @@ function formHtml(it, h) {
 function openPortAdd() {
   const w = W(); S.ppick = null; S.psel = null; S.pdel = false;
   showSheet(`<div class="sh-head"><span class="nm"><h3>Portföye ekle</h3><span>${w.st ? 'Hisse' : 'Coin'} seç</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
-    <div class="bar"><input id="pq" type="search" autocomplete="off" placeholder="${w.st ? 'Hisse ara (ör. thy, apple)' : 'Coin ara (ör. bitcoin, xrp)'}" aria-label="Ara"></div><div id="pres" class="rows"></div><div id="pform"></div>
-    ${Object.keys(S.pfx || {}).length ? `<div id="pfxbox"><div class="sub" style="margin:10px 0 4px">Altın ve döviz</div><div class="chips">${Object.values(S.pfx).map((x) => `<button class="chip" data-ppick="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>` : ''}
+    <div class="bar"><input id="pq" type="search" autocomplete="off" placeholder="${w.st ? 'Hisse ara (ör. thy, apple)' : 'Coin ara (ör. bitcoin, xrp)'}" aria-label="Ara"></div>
+    ${Object.keys(S.pfx || {}).length ? `<div id="pfxbox" style="margin:10px 0"><div class="sub" style="margin:0 0 4px"><b>Altın ve döviz ekle</b></div><div class="chips">${Object.values(S.pfx).map((x) => `<button class="chip" data-ppick="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>` : '<p class="rnote" id="pfxbox">Altın ve döviz eklemek için kur bilgisi gerekiyor; şu an alınamadı. Birkaç dakika sonra Ekle\'ye tekrar bas.</p>'}<div id="pres" class="rows"></div><div id="pform"></div>
+
     ${w.st ? '' : '<p class="rnote">Yalnızca piyasa değerine göre ilk 500 coin aranabilir. Listede olmayan bir coini eklemek istersen bana söyle.</p>'}`, 'Portföye ekle');
   fillPres(); $('#pq').focus();
 }

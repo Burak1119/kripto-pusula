@@ -1,1 +1,1 @@
-Yeni: portföye gram altın, dolar ve euro eklenebiliyor; Ayarlar'dan tema, yazı boyutu ve tam yedek; portföyde kendi sıran, gruplar ve risk puanı.
+Düzeltme: Altın ve döviz düğmeleri artık Portföy → Ekle ekranında arama kutusunun hemen altında.

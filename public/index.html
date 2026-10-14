@@ -1687,6 +1687,7 @@ function formHtml(it, h) {
   const qtyBlock = h && h.tx
     ? `<div class="sub">Miktar <b class="num">${fmtQty(h.qty)}</b> · ortalama maliyet <b class="num">${num(h.cost) !== null ? money(h.cost, cur) : 'bilinmiyor'}</b><br>Bunlar aşağıdaki işlemlerden hesaplanır. Düzeltmek için işlem ekle ya da sil.</div>`
     : `<label>Miktar (kaç ${stk ? 'adet hisse' : esc(sym)})<input id="pqty" inputmode="decimal" autocomplete="off" placeholder="örn. 0,05" value="${h ? esc(inNum(h.qty)) : ''}"><span class="hint" id="pqprev"></span></label>
+      <label>Ya da kaç ${curSym(cur)} tutarında aldın? (miktarı ben hesaplarım)<input id="pamt" inputmode="decimal" autocomplete="off" placeholder="örn. 5000"><span class="hint" id="pahint"></span></label>
       <label>Ortalama alış fiyatı, tane başına (${curSym(cur)}) · boş bırakılabilir<input id="pcost" inputmode="decimal" autocomplete="off" placeholder="bilmiyorsan boş bırak" value="${h ? esc(inNum(h.cost)) : ''}"><span class="hint" id="pcprev"></span></label>`;
   return `<div class="who" style="margin-top:6px">${avatar(it)}<span class="nm"><b>${esc(it.name)}</b><span>${esc(sym)}${h ? '' : ' · ' + money(it.price, cur)}</span></span></div>
     <div class="pfform">
@@ -1719,12 +1720,41 @@ function openPortEdit(u) {
   S.psel = u; S.pdel = false;
   showSheet(`<div class="sh-head"><span class="nm"><h3>${esc(h.name)}</h3><span>Portföy kaydı${h.src ? ' · ' + esc(h.src) : ''}</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>${formHtml(it, h)}`, 'Portföy kaydı');
 }
-function readForm() {
+// Formdaki varlığın, maliyet para biriminde (coin: TL, hisse: kendi parası) güncel fiyatı. Kur yoksa null.
+function formPrice(it) {
+  if (!it || num(it.price) === null) return null;
+  if (isStock(it)) return it.price;
+  if (it.fx === 'TRY' || !it.fx) return it.price;
+  const r = S.fx && S.fx[it.fx]; return r > 0 ? it.price * r : null;
+}
+// Miktar, tutar ve fiyattan ikisi yazılınca üçüncüsü bulunur. Dönen: { qty, cost, how } ya da { err }.
+function qtyCalc(it, qtyS, amtS, costS) {
+  const qty = parseNumTr(qtyS), amt = parseNumTr(amtS), cost = parseNumTr(costS);
+  if (costS.trim() && cost === null) return { err: 'Maliyeti sayı olarak yaz ya da boş bırak.' };
+  if (amtS.trim() && !(amt > 0)) return { err: 'Tutarı sayı olarak yaz (0\'dan büyük).' };
+  if (qtyS.trim() && !(qty > 0)) return { err: 'Miktarı yaz (0\'dan büyük bir sayı). Ondalık için virgül kullanabilirsin.' };
+  const r4 = (x) => Number(x.toPrecision(10));
+  if (qty > 0 && amt > 0) return { qty, cost: cost !== null ? cost : r4(amt / qty), how: cost !== null ? '' : 'avg' };
+  if (qty > 0) return { qty, cost };
+  if (amt > 0) {
+    const unit = cost > 0 ? cost : formPrice(it);
+    if (!(unit > 0)) return { err: 'Güncel fiyat alınamadı. Miktarı ya da alış fiyatını kendin yaz.' };
+    return { qty: r4(amt / unit), cost: cost !== null ? cost : unit, how: cost > 0 ? 'cost' : 'now', unit };
+  }
+  return { err: 'Miktarı yaz ya da kaç ' + (it && isStock(it) ? it.cur : 'TL') + ' tutarında aldığını yaz.' };
+}
+function readForm(it) {
   if (!$('#pqty')) return { src: $('#psrc').value, onlySrc: true };
-  const qty = parseNumTr($('#pqty').value), cost = parseNumTr($('#pcost').value);
-  if (!(qty > 0)) { $('#perr').textContent = 'Miktarı yaz (0\'dan büyük bir sayı). Ondalık için virgül kullanabilirsin.'; return null; }
-  if ($('#pcost').value.trim() && cost === null) { $('#perr').textContent = 'Maliyeti sayı olarak yaz ya da boş bırak.'; return null; }
-  return { qty, cost, src: $('#psrc').value };
+  const r = qtyCalc(it, $('#pqty').value, $('#pamt') ? $('#pamt').value : '', $('#pcost').value);
+  if (r.err) { $('#perr').textContent = r.err; return null; }
+  return { qty: r.qty, cost: r.cost, src: $('#psrc').value, how: r.how, unit: r.unit };
+}
+function calcFlash(it, f) {
+  const cur = isStock(it) ? it.cur : 'TRY';
+  if (f.how === 'now') return `${fmtQty(f.qty)} adet kaydedildi: tutar, güncel fiyat (${money(f.unit, cur)}) üzerinden bölündü. Farklı fiyattan aldıysan Alış fiyatını da yazıp düzelt.`;
+  if (f.how === 'cost') return `${fmtQty(f.qty)} adet kaydedildi (tutar ÷ ${money(f.unit, cur)}).`;
+  if (f.how === 'avg') return `${fmtQty(f.qty)} adet kaydedildi; ortalama alış fiyatı ${money(f.cost, cur)} hesaplandı.`;
+  return '';
 }
 function afterPortChange() {
   savePort(); closeSheet(); syncPushSoon();
@@ -2026,7 +2056,8 @@ document.addEventListener('click', (e) => {
   }
   else if (t.id === 'padd') openPortAdd();
   else if (t.id === 'psave' || t.id === 'pupd') {
-    const f = readForm(); if (!f) return;
+    const hh = t.id === 'pupd' ? S.port.find((x) => x.u === S.psel) : null;
+    const f = readForm(t.id === 'psave' ? byId(S.ppick) : hh && (holdItem(hh) || byId(hh.id))); if (!f) return;
     if (t.id === 'psave') {
       const it = byId(S.ppick); if (!it) return;
       const stk = isStock(it);
@@ -2037,6 +2068,7 @@ document.addEventListener('click', (e) => {
       else { if (f.qty !== h.qty) h.est = false; Object.assign(h, { qty: f.qty, cost: f.cost, src: f.src }); }
     }
     afterPortChange();
+    if (f.how) { const fi = t.id === 'psave' ? byId(S.ppick) : hh && (holdItem(hh) || byId(hh.id)); if (fi) { S.flash = calcFlash(fi, f); render(); } }
   }
   else if (t.id === 'pdel') {
     if (!S.pdel) { S.pdel = true; t.textContent = 'Emin misin? Evet, sil'; return; }
@@ -2066,9 +2098,18 @@ document.addEventListener('input', (e) => {
   const id = e.target.id;
   if (id === 'pq') { fillPres(); return; }
   if (id === 'pimp') { S.pimp = e.target.value; return; }
-  if (id === 'pqty' || id === 'pcost') {
-    const v = parseNumTr(e.target.value), el = $(id === 'pqty' ? '#pqprev' : '#pcprev');
-    if (el) el.textContent = e.target.value.trim() === '' ? '' : v === null ? 'Sayı olarak okunamadı' : '= ' + fmtQty(v);
+  if (id === 'pqty' || id === 'pcost' || id === 'pamt') {
+    const v = parseNumTr(e.target.value), el = $(id === 'pqty' ? '#pqprev' : id === 'pamt' ? '#pahint' : '#pcprev');
+    if (el && id !== 'pamt') el.textContent = e.target.value.trim() === '' ? '' : v === null ? 'Sayı olarak okunamadı' : '= ' + fmtQty(v);
+    const ah = $('#pahint');
+    if (ah && $('#pamt')) {
+      const hs = S.psel && S.port.find((x) => x.u === S.psel), it = hs ? (holdItem(hs) || byId(hs.id)) : byId(S.ppick);
+      const amtS = $('#pamt').value; ah.textContent = '';
+      if (amtS.trim()) {
+        const r = qtyCalc(it, $('#pqty').value, amtS, $('#pcost').value), cur = it && isStock(it) ? it.cur : 'TRY';
+        ah.textContent = r.err ? (r.err.startsWith('Miktarı yaz ya da') ? '' : r.err) : r.how === 'avg' ? `Ortalama alış fiyatı ≈ ${money(r.cost, cur)}` : `≈ ${fmtQty(r.qty)} adet (${r.how === 'now' ? 'güncel fiyat ' + money(r.unit, cur) + ' üzerinden' : 'alış fiyatı üzerinden'})`;
+      }
+    }
     return;
   }
   if (e.target.id === 'q') { S.q = e.target.value; S.shown = 40; render(); } else if (e.target.id === 'rq') { S.rq = e.target.value; S.rshown = 30; render(); }

@@ -67,7 +67,7 @@ names = "analyze, newsContext, buildStockWorld, watchMessages, alertsRun, alertH
     encoding="utf-8")
 
 (pub / "sw.js").write_text("""// Önce ağ, olmazsa önbellek: çevrimdışıyken son görülen ekran açılır.
-const NAME = 'kripto-pusula-v3';
+const NAME = 'kripto-pusula-v4';
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(NAME).then((c) => c.addAll(['/']))); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== NAME).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 // Sunucudan gelen boş "dürtme": asıl bildirim metnini sunucudan alıp gösterir (iPhone her dürtmede bildirim gösterilmesini şart koşar).
@@ -102,13 +102,25 @@ self.addEventListener('fetch', (e) => {
 
 def icon(size, path):
     s = size * 4
-    im = Image.new("RGBA", (s, s), (14, 90, 80, 255))
+    u = s / 100
+    im = Image.new("RGBA", (s, s))
+    px = im.load()
+    for y in range(s):
+        t = y / s
+        col = (int(12 - 4 * t), int(70 - 22 * t), int(66 - 16 * t), 255)
+        for x in range(s):
+            px[x, y] = col
     d = ImageDraw.Draw(im)
-    c = s / 2
-    r = s * 0.30
-    d.ellipse([c - r, c - r, c + r, c + r], outline=(250, 251, 249, 150), width=int(s * 0.025))
-    d.polygon([(c, c - r * 1.1), (c + r * 0.34, c), (c, c + r * 1.1), (c - r * 0.34, c)], fill=(250, 251, 249, 70))
-    d.polygon([(c, c - r * 1.1), (c + r * 0.34, c), (c - r * 0.34, c)], fill=(200, 115, 26, 255))
+    def line(pts, w, col):
+        P = [(x * u, y * u) for x, y in pts]
+        d.line(P, fill=col, width=int(w * u), joint="curve")
+        for x, y in P:
+            r = w * u / 2
+            d.ellipse([x - r, y - r, x + r, y + r], fill=col)
+    c, r = 50 * u, 34 * u
+    d.ellipse([c - r, c - r, c + r, c + r], outline=(46, 196, 160, 255), width=int(4 * u))
+    line([(32, 66), (48, 46), (56, 56), (72, 32)], 6, (255, 255, 255, 255))
+    line([(62, 31), (73, 31), (73, 42)], 6, (245, 166, 35, 255))
     im.resize((size, size), Image.LANCZOS).convert("RGB").save(path)
 
 for n in (180, 192, 512):

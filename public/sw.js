@@ -1,5 +1,5 @@
 // Önce ağ, olmazsa önbellek: çevrimdışıyken son görülen ekran açılır.
-const NAME = 'kripto-pusula-v3';
+const NAME = 'kripto-pusula-v4';
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(NAME).then((c) => c.addAll(['/']))); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== NAME).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 // Sunucudan gelen boş "dürtme": asıl bildirim metnini sunucudan alıp gösterir (iPhone her dürtmede bildirim gösterilmesini şart koşar).

@@ -1,6 +1,6 @@
 // Döviz kuru: 1 doların ve 1 euronun kaç lira ettiği. Önce CoinGecko'daki Tether fiyatından (dolara bağlı),
 // olmazsa açık bir kur servisinden okunur. Kur bulunamazsa uygulama tek toplam göstermez, geri kalanı etkilenmez.
-const TTL = 2 * 60 * 1000;
+const TTL = 60 * 1000;
 let cache = { ts: 0, data: null };
 
 async function getJson(url) {
@@ -31,18 +31,20 @@ async function gold() {
   } catch (e) { return null; }
 }
 
+const harem = (() => { try { return require('./harem'); } catch (e) { return null; } })();
+
 async function handler(req, res) {
   res.setHeader('content-type', 'application/json; charset=utf-8');
   res.setHeader('access-control-allow-origin', '*');
-  res.setHeader('cache-control', 'public, s-maxage=120, stale-while-revalidate=600');
+  res.setHeader('cache-control', 'public, s-maxage=60, stale-while-revalidate=300');
   if (!cache.data || Date.now() - cache.ts > TTL) {
     let d = null;
     for (const f of [fromGecko, fromOpen]) { try { d = await f(); break; } catch (e) { /* sıradaki kaynak */ } }
-    if (d) cache = { ts: Date.now(), data: { ...d, gold: await gold() } };
+    if (d) cache = { ts: Date.now(), data: { ...d, gold: await gold(), harem: harem ? await harem.getHarem().catch(() => null) : null } };
     else if (!cache.data) { res.statusCode = 502; res.end(JSON.stringify({ error: 'kur alınamadı' })); return; }
   }
   const d = cache.data;
-  res.end(JSON.stringify({ updated: cache.ts, TRY: 1, USD: d.USD, EUR: d.EUR, src: d.src, gold: d.gold || null }));
+  res.end(JSON.stringify({ updated: cache.ts, TRY: 1, USD: d.USD, EUR: d.EUR, src: d.src, gold: d.gold || null, harem: d.harem || null }));
 }
 module.exports = handler;
 module.exports._reset = () => { cache = { ts: 0, data: null }; };

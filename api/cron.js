@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
       for (const it of E.buildStockWorld(raw, (sn && sn.json.news) || []).items) stocks[it.id] = it;
     }
     let fxt = [];
-    if (fxNeed) { try { const j = (await callApi(fxApi, '/api/fx')).json; fxt = E.fxTable(j.USD, j.EUR, j.gold && j.gold.usdOz, j.gold && j.gold.chg); } catch (e) { fxt = []; } }
+    if (fxNeed) { try { const j = (await callApi(fxApi, '/api/fx')).json; fxt = E.fxTable(j.USD, j.EUR, j.gold && j.gold.usdOz, j.gold && j.gold.chg, j.harem); } catch (e) { fxt = []; } }
     const fxPrice = {}; for (const x of fxt) fxPrice[x.id] = x.price;
     let sent = 0, gone = 0;
     for (const { id, r } of recs) {

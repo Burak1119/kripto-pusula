@@ -1,1 +1,1 @@
-Yeni: sabah özeti bildirimi, maliyete göre otomatik kurallar, altın ve döviz alarmları, çevirici (10.000 TL kaç dolar/altın eder).
+Yeni: altın fiyatları Harem Altın'dan çekilmeye çalışılıyor (alınamazsa eski hesaplama devam eder).

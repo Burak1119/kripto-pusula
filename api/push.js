@@ -6,7 +6,7 @@ const MAX_SUBS = 300;
 const str = (v, n) => String(v === undefined || v === null ? '' : v).slice(0, n);
 const cleanWatch = (l) => (Array.isArray(l) ? l : []).slice(0, 60).map((w) => ({ k: w && w.k === 's' ? 's' : 'c', id: str(w && w.id, 80), sym: str(w && w.sym, 15), name: str(w && w.name, 60) })).filter((w) => w.id);
 const cleanAlerts = (l) => (Array.isArray(l) ? l : []).slice(0, 40).map((a) => ({
-  u: str(a && a.u, 30), k: a && a.k === 's' ? 's' : 'c', id: str(a && a.id, 80), sym: str(a && a.sym, 15), name: str(a && a.name, 60),
+  u: str(a && a.u, 30), k: a && a.k === 's' ? 's' : a && a.k === 'f' ? 'f' : 'c', id: str(a && a.id, 80), sym: str(a && a.sym, 15), name: str(a && a.name, 60), n: str(a && a.n, 60),
   dir: a && a.dir === 'dn' ? 'dn' : 'up', price: Number(a && a.price), ccy: ['TRY', 'USD', 'EUR'].includes(a && a.ccy) ? a.ccy : 'TRY', done: a && Number(a.done) > 0 ? Number(a.done) : null,
 })).filter((a) => a.u && a.id && Number.isFinite(a.price) && a.price > 0);
 async function body(req) {
@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
       const alerts = cleanAlerts(b.alerts), prev = new Map(((old && old.alerts) || []).map((x) => [x.u, x]));
       // Sunucuda tetiklenmiş alarm, kullanıcı fiyatını değiştirmediyse tetiklenmiş kalır
       for (const x of alerts) { const p = prev.get(x.u); if (p && p.done && p.price === x.price && p.dir === x.dir) x.done = p.done; }
-      const rec = { endpoint, keys: keys && typeof keys === 'object' ? { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 100) } : null, watch: cleanWatch(b.watch), alerts,
+      const rec = { endpoint, keys: keys && typeof keys === 'object' ? { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 100) } : null, watch: cleanWatch(b.watch), alerts, morning: Number.isInteger(b.morning) && b.morning >= 5 && b.morning <= 12 ? b.morning : null,
         sigs: (old && old.sigs) || {}, done: (old && old.done) || {}, at: (old && old.at) || Date.now() };
       await store.setJson('sub:' + id, rec); await store.sadd('subs', id);
       return out({ ok: true, alerts: alerts.map((x) => ({ u: x.u, done: x.done })) });

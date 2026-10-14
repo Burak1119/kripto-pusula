@@ -1,1 +1,1 @@
-Yeni: altın ve döviz kalemlerinin kendi simgeleri var (külçe, madeni para, bilezik, dolar, euro).
+Yeni: sabah özeti bildirimi, maliyete göre otomatik kurallar, altın ve döviz alarmları, çevirici (10.000 TL kaç dolar/altın eder).

@@ -394,7 +394,7 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 </style>
 </head>
 <body>
-<script>window.KP_BUILD="8c40170d39";</script>
+<script>window.KP_BUILD="3ad6c9d235";</script>
 <div id="app">
   <header class="top">
     <button class="brand" data-kind="choose" aria-label="Başa dön: Coin mi Hisse mi seç">
@@ -1097,7 +1097,9 @@ function alertsRun(alerts, priceOf, now) {
     const p = priceOf(a);
     if (!alertHit(a, p)) continue;
     a.done = now;
-    msgs.push({ k: a.k, id: a.id, tag: 'al-' + a.u, title: `${a.name}: hedef fiyata ulaştı`, body: `${String(a.sym).toUpperCase()} şu an ${fmtMoney(p, a.ccy)}; ${a.dir === 'up' ? 'yukarı' : 'aşağı'} hedefin ${fmtMoney(a.price, a.ccy)} idi.` });
+    const sym = String(a.sym).toUpperCase();
+    if (a.n) msgs.push({ k: a.k, id: a.id, tag: 'al-' + a.u, title: `${a.name}: ${a.n}`, body: `${sym} şu an ${fmtMoney(p, a.ccy)}; eşik ${fmtMoney(a.price, a.ccy)} idi.` });
+    else msgs.push({ k: a.k, id: a.id, tag: 'al-' + a.u, title: `${a.name}: hedef fiyata ulaştı`, body: `${sym} şu an ${fmtMoney(p, a.ccy)}; ${a.dir === 'up' ? 'yukarı' : 'aşağı'} hedefin ${fmtMoney(a.price, a.ccy)} idi.` });
   }
   return msgs;
 }
@@ -1156,6 +1158,46 @@ function portRisk(rows, fx, target) {
   if (n >= 2 && n <= 3) why.push({ pos: null, t: 'Az sayıda varlık var; çeşitlendirmek riski azaltır.' });
   return { score, level, share, n, why };
 }
+// Altın ve döviz tablosu (hep TL). Gram altın = ons fiyatı ÷ 31,1035 × dolar kuru. Altın kalemleri saf altın değerinden hesaplanır.
+const FX_GOLD = [
+  ['fx:gold', 'Gram altın', 'gram', 1, 'Au', 'gram altın', '1 gram · 24 ayar'],
+  ['fx:ceyrek', 'Çeyrek altın', 'çeyrek', (1.75 * 0.916), '¼', 'çeyrek altın', '1,75 g · 22 ayar'],
+  ['fx:yarim', 'Yarım altın', 'yarım', (3.5 * 0.916), '½', 'yarım altın', '3,5 g · 22 ayar'],
+  ['fx:tam', 'Tam altın', 'tam', (7 * 0.916), '1', 'tam altın', '7 g · 22 ayar'],
+  ['fx:ata', 'Cumhuriyet (Ata) altını', 'ata', (7.216 * 0.916), 'At', 'Cumhuriyet altını', '7,216 g · 22 ayar'],
+  ['fx:22', '22 ayar altın (bilezik)', '22 ayar', 0.916, '22', 'gram 22 ayar altın', '1 gram · 22 ayar'],
+  ['fx:18', '18 ayar altın', '18 ayar', 0.75, '18', 'gram 18 ayar altın', '1 gram · 18 ayar'],
+  ['fx:14', '14 ayar altın', '14 ayar', 0.585, '14', 'gram 14 ayar altın', '1 gram · 14 ayar'],
+];
+function fxTable(usd, eur, ozUsd, chg) {
+  const out = [], mk = (id, name, symbol, price, c24, x) => out.push({ id, name, symbol, price, c24, ...x });
+  if (num(ozUsd) !== null && ozUsd > 0 && usd > 0) {
+    const gram = (ozUsd / 31.1035) * usd, ch = num(chg);
+    for (const [id, nm, sy, f, av, ul, sub] of FX_GOLD) mk(id, nm, sy, gram * f, ch, { g: true, av, ul, sub });
+    mk('fx:ons', 'Ons altın', 'ons', ozUsd * usd, ch, { g: true, av: 'oz', ul: 'ons altın', sub: '1 ons · ' + fmtMoney(ozUsd, 'USD') });
+  }
+  if (usd > 0) mk('fx:usd', 'Amerikan doları', 'USD', usd, null, { av: '$', ul: 'dolar', sub: '1 USD · TL' });
+  if (eur > 0) mk('fx:eur', 'Euro', 'EUR', eur, null, { av: '€', ul: 'euro', sub: '1 EUR · TL' });
+  return out;
+}
+// Sabah özeti: izlenen varlıkların dünkü en iyi/en kötüsü, zayıf sinyaller, dolar-euro-altın. Miktar/maliyet kullanılmaz.
+function morningMessage(watch, itemOf, fxt) {
+  const its = watch.map((w) => ({ w, it: itemOf(w) })).filter((x) => x.it && x.it.a && num(x.it.c24) !== null);
+  const parts = [];
+  if (its.length) {
+    its.sort((p, q) => q.it.c24 - p.it.c24);
+    const best = its[0], worst = its[its.length - 1];
+    if (its.length === 1) parts.push(`${best.w.name} son 24 saatte ${fmtP(best.it.c24)}.`);
+    else parts.push(`En çok yükselen ${best.w.name} ${fmtP(best.it.c24)}, en çok düşen ${worst.w.name} ${fmtP(worst.it.c24)}.`);
+    const weak = its.filter((x) => x.it.a.signal === 'SAT' || x.it.a.signal === 'AZALT').map((x) => x.w.name);
+    if (weak.length) parts.push(`Azalt/Sat sinyali: ${weak.slice(0, 3).join(', ')}${weak.length > 3 ? ' ve ' + (weak.length - 3) + ' varlık daha' : ''}.`);
+  }
+  const g = (id) => (fxt || []).find((x) => x.id === id);
+  const fx = [['fx:usd', 'Dolar'], ['fx:eur', 'Euro'], ['fx:gold', 'Gram altın']].map(([id, n]) => (g(id) ? `${n} ${fmtMoney(g(id).price, 'TRY')}` : '')).filter(Boolean);
+  if (fx.length) parts.push(fx.join(' · ') + '.');
+  if (!parts.length) return null;
+  return { tag: 'morning', title: 'Günaydın, piyasa özeti', body: parts.join(' ') };
+}
 // ENGINE END
 
 /* ---------- Arayüz ---------- */
@@ -1167,6 +1209,7 @@ const store = {
 };
 // kind: null = açılış seçim ekranı, 'coin' ya da 'stock'. Her açılışta seçim ekranı gelir.
 const S = {
+  rules: store.get('rules', { on: false, loss: 10, gain: 25 }), morning: store.get('morning', { on: false, h: 9 }), cv: { amt: '10000', u: 'TRY' },
   theme: store.get('theme', 'auto'), fz: store.get('fz', 1), pmode: store.get('pmode', 'deger'),
   kind: null, tab: 'pano', cur: store.get('cur', 'usd'), favs: store.get('favs', []),
   coins: [], news: [], info: null, mode: 'loading', updated: 0, loadedAt: 0,
@@ -1521,7 +1564,7 @@ function renderImportBar() {
   const n = S.pimport ? S.pimport.length : 0;
   $('#importbar').innerHTML = S.pimport
     ? `<div class="banner"><b>Portföy bağlantısı bulundu:</b> ${n} varlık.${S.port.length ? ' Bu cihazdaki portföyün yerine geçer.' : ''}<div class="imp-actions"><button class="btn primary" id="pimpgo">Portföyümü yükle</button><button class="btn" id="pimpno">Vazgeç</button></div></div>`
-    : S.flash ? `<div class="banner ok"><b>${/hedef fiyata ulaştı/.test(S.flash) ? 'Alarm:' : 'Tamam.'}</b> ${esc(S.flash)}</div>` : '';
+    : S.flash ? `<div class="banner ok"><b>${/hedef fiyata ulaştı|maliyet|kâra geçti/.test(S.flash) ? 'Alarm:' : 'Tamam.'}</b> ${esc(S.flash)}</div>` : '';
 }
 function render() {
   const k = S.kind, choose = !k, w = W();
@@ -1549,6 +1592,31 @@ function render() {
 }
 
 /* ---------- Altın ve döviz dünyası ---------- */
+/* ---------- Çevirici (altın ve döviz) ---------- */
+function cvCalc() {
+  const amt = parseNumTr(S.cv.amt), items = S.pfx || {};
+  if (!(amt > 0)) return null;
+  const unit = S.cv.u === 'TRY' ? 1 : items[S.cv.u] && items[S.cv.u].price;
+  if (!(unit > 0)) return null;
+  const tl = amt * unit;
+  const rows = [['TRY', 'Türk lirası', tl]];
+  for (const it of Object.values(items)) if (it.id !== S.cv.u) rows.push([it.id, it.name, tl / it.price]);
+  return { tl, rows };
+}
+function cvOutHtml() {
+  const r = cvCalc(); if (!r) return '<div class="hint">Bir miktar yaz.</div>';
+  const fmt = (id, v) => id === 'TRY' ? money(v, 'TRY') : id === 'fx:usd' ? money(v, 'USD') : id === 'fx:eur' ? money(v, 'EUR') : fmtQty(Number(v.toFixed(v < 10 ? 3 : 2)));
+  const unitOf = (id) => id === 'TRY' || id === 'fx:usd' || id === 'fx:eur' ? '' : ' ' + ((S.pfx[id] && S.pfx[id].ul) || '').replace(/^gram /, 'g ');
+  return `<div class="rows">${r.rows.map(([id, nm, v]) => `<div class="row prow" style="cursor:default"><span class="who"><span class="nm"><b>${esc(nm)}</b></span></span><span class="px"><span class="num">${fmt(id, v)}${unitOf(id)}</span></span></div>`).join('')}</div>`;
+}
+function cvUpdate() { const el = $('#cvout'); if (el) el.innerHTML = cvOutHtml(); }
+function cvPanel() {
+  const opts = [['TRY', 'Türk lirası (₺)'], ...Object.values(S.pfx).map((x) => [x.id, x.name])];
+  return `<section class="panel" style="margin-bottom:14px"><h2>Çevirici</h2>
+    <div class="txform"><input id="cvamt" inputmode="decimal" autocomplete="off" value="${esc(S.cv.amt)}" placeholder="miktar" aria-label="Miktar"><select id="cvu" aria-label="Birim">${opts.map(([v, n]) => `<option value="${esc(v)}"${S.cv.u === v ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+    <div id="cvout" style="margin-top:8px">${cvOutHtml()}</div>
+    <p class="rnote" style="margin:8px 0 0">Güncel fiyatlardan yaklaşık hesaplanır; alış-satış farkı ve işçilik dahil değildir.</p></section>`;
+}
 function viewFxPiyasa() {
   if (!S.fx) return '<div class="loading">Kurlar yükleniyor…<br><button class="btn retry" id="fxretry">Tekrar dene</button></div>';
   const all = Object.values(S.pfx), gl = all.filter((x) => x.g), dl = all.filter((x) => !x.g);
@@ -1556,7 +1624,7 @@ function viewFxPiyasa() {
   const rows = (l) => `<div class="rows">${l.map((it) => `<button class="row prow" data-item="${esc(it.id)}">
       <span class="who">${avatar(it)}<span class="nm"><b>${esc(it.name)}</b><span>${esc(it.sub || '')}</span></span></span>
       <span class="px"><span class="num">${money(it.price, 'TRY')}</span>${num(it.c24) !== null ? `<span class="chg num ${cc(it.c24)}">${pct(it.c24)}</span>` : '<span class="chg">—</span>'}</span></button>`).join('')}</div>`;
-  return `${gl.length ? `<section class="panel"><h2>Altın</h2>${rows(gl)}<div class="sub" style="margin-top:8px">Ons altın: <b class="num">${money(S.gold.usdOz, 'USD')}</b></div>
+  return `${cvPanel()}${gl.length ? `<section class="panel"><h2>Altın</h2>${rows(gl)}<div class="sub" style="margin-top:8px">Ons altın: <b class="num">${money(S.gold.usdOz, 'USD')}</b></div>
       <p class="rnote" style="margin:8px 0 0">Fiyatlar saf altın değeri üzerinden yaklaşık hesaplanır (çeyrek, yarım, tam ve Ata için 22 ayar gramajıyla). Kuyumcu ve banka fiyatları işçilik ve alış-satış farkı yüzünden genelde yüzde birkaç farklı olur.</p></section>` : '<section class="panel"><div class="empty">Altın fiyatı şu an alınamadı.</div></section>'}
     <section class="panel" style="margin-top:14px"><h2>Döviz</h2>${rows(dl)}${parity ? `<div class="sub" style="margin-top:8px">EUR/USD: <b class="num">${parity.toFixed(4).replace('.', ',')}</b></div>` : ''}
     <p class="rnote" style="margin:8px 0 0">Kurlar uluslararası piyasa kurudur; banka ve döviz bürosu fiyatından biraz farklı olabilir. Satıra basınca saatlik, günlük, haftalık, aylık ve yıllık grafik açılır. Bu bölümde al-sat sinyali verilmez.</p></section>`;
@@ -1574,6 +1642,7 @@ function openFxSheet(c) {
     ${num(c.c24) !== null ? `<div class="chgrow"><span>24 sa <b class="num ${cc(c.c24) === 'up' ? 't-up' : 't-dn'}">${pct(c.c24)}</b></span></div>` : ''}
     ${chartPanel(c)}
     ${metrics ? `<section class="panel"><div class="metrics">${metrics}</div></section>` : ''}
+    ${alertSection(c)}
     <div class="actions"><button class="btn primary" id="pfxadd" data-fxid="${esc(c.id)}">Portföyüme ekle</button></div>
     <p class="disc">Bu sayfa bilgi amaçlıdır, yatırım tavsiyesi değildir.${gold ? ' Gram altın fiyatı yaklaşıktır.' : ''}</p>`;
   $('#scrim').hidden = false;
@@ -1643,10 +1712,10 @@ function prow(r) {
 const todayStr = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const curSym = (c) => (c === 'USD' ? '$' : c === 'EUR' ? '€' : '₺');
 const saveAlerts = () => store.set('alerts', S.alerts);
-const alertCcyOf = (c) => (isStock(c) ? c.cur : c.fx || CUR_LOCALE[S.cur]);
+const alertCcyOf = (c) => (c.kind === 'fx' ? 'TRY' : isStock(c) ? c.cur : c.fx || CUR_LOCALE[S.cur]);
 function alertRow(a) {
-  return `<div class="alitem"><span>${a.dir === 'up' ? '▲ yukarı' : '▼ aşağı'} <b class="num">${fmtMoney(a.price, a.ccy)}</b>${a.done ? ' · <span class="t-up">ulaşıldı</span>' : ''}</span>
-    <span class="alb">${a.done ? `<button class="btn" data-alre="${esc(a.u)}">Yeniden kur</button>` : ''}<button class="btn" data-aldel="${esc(a.u)}" aria-label="Alarmı sil">✕</button></span></div>`;
+  return `<div class="alitem"><span>${a.dir === 'up' ? '▲ yukarı' : '▼ aşağı'} <b class="num">${fmtMoney(a.price, a.ccy)}</b>${a.n ? ` <small class="sub">· otomatik: ${esc(a.n)}</small>` : ''}${a.done ? ' · <span class="t-up">ulaşıldı</span>' : ''}</span>
+    <span class="alb">${a.n ? '' : `${a.done ? `<button class="btn" data-alre="${esc(a.u)}">Yeniden kur</button>` : ''}<button class="btn" data-aldel="${esc(a.u)}" aria-label="Alarmı sil">✕</button>`}</span></div>`;
 }
 function alertSection(c) {
   const mine = S.alerts.filter((a) => a.id === c.id), ccy = alertCcyOf(c);
@@ -1656,10 +1725,11 @@ function alertSection(c) {
     <div class="hint">${S.notifOn ? (S.push.on ? 'Bildirimler açık: uygulama kapalıyken de haber gelir.' : 'Bildirimler açık ama yalnızca uygulama açıkken kontrol edilir.') : 'Bildirimleri Portföy sekmesinden açmazsan alarm yalnızca uygulamayı açtığında ekranda görünür.'}</div></section>`;
 }
 function alertsPanel(kind) {
-  const l = S.alerts.filter((a) => a.k === (kind === 'coin' ? 'c' : 's'));
+  const l = S.alerts.filter((a) => a.k === (kind === 'coin' ? 'c' : kind === 'fx' ? 'f' : 's'));
   return `<section class="panel" style="margin-top:14px"><h2>Fiyat alarmları</h2>${l.length ? l.map((a) => `<div class="alname"><b>${esc(a.name)}</b></div>${alertRow(a)}`).join('') : '<div class="sub">Henüz alarm yok. Bir varlığa basıp ayrıntısını aç, en altta "Fiyat alarmı" bölümünden hedef fiyat yaz.</div>'}</section>`;
 }
 function priceOfAlert(a) {
+  if (a.k === 'f') { const it = S.pfx && S.pfx[a.id]; return it && S.mode !== 'demo' ? it.price : null; }
   if (a.k === 's') { if (S.smode !== 'live') return null; const it = S.sitems.find((x) => x.id === a.id); return it && it.live ? it.price : null; }
   if (S.mode !== 'live') return null;
   const t = S.pcoins[a.id]; if (a.ccy === 'TRY' && t) return t.price;
@@ -1693,7 +1763,7 @@ async function syncPush() {
   try {
     const sub = await pushSub(false); if (!sub) { S.push.on = false; return; }
     const watch = S.port.filter((h) => h.qty > 0 && h.kind !== 'fx').map((h) => ({ k: h.kind === 'coin' ? 'c' : 's', id: h.id, sym: h.sym, name: h.name }));
-    const r = await postJson('/api/push?a=sync', { sub: sub.toJSON(), watch, alerts: S.alerts });
+    const r = await postJson('/api/push?a=sync', { sub: sub.toJSON(), watch, alerts: S.alerts, morning: S.morning.on ? S.morning.h : null });
     const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.error || r.status);
     let ch = false;
     for (const x of j.alerts || []) { const a = S.alerts.find((y) => y.u === x.u); if (a && x.done && !a.done) { a.done = x.done; ch = true; } }
@@ -1805,7 +1875,7 @@ function viewFxPortfoy() {
   const body = rows.length ? fxPanel() : `<section class="panel"><div class="empty">Henüz altın ya da döviz eklemedin.<br>"Ekle" ile gram altın, dolar ya da euro miktarını gir; değerini ve kâr/zararını burada görürsün.</div></section>`;
   const closed = S.port.filter((h) => h.kind === 'fx' && !(h.qty > 0));
   const closedP = closed.length ? `<section class="panel" style="margin-top:14px"><h2>Tamamen sattıkların</h2><div class="rows">${closed.map((h) => `<button class="row prow" data-pedit="${esc(h.u)}"><span class="who"><span class="av">${esc(h.sym.slice(0, 3).toUpperCase())}</span><span class="nm"><b>${esc(h.name)}</b><span>Kapandı</span></span></span></button>`).join('')}</div></section>` : '';
-  return head + body + closedP + '<p class="rnote" style="margin:12px 0 0">Altın ve döviz portföyü, coin ve hisse portföyünden ayrı tutulur ve toplamlara katılmaz. Yedek ve taşıma için çark simgesindeki Ayarlar\'ı kullan.</p>';
+  return head + body + closedP + alertsPanel('fx') + rulesPanel() + notifPanel() + morningPanel() + '<p class="rnote" style="margin:12px 0 0">Altın ve döviz portföyü, coin ve hisse portföyünden ayrı tutulur ve toplamlara katılmaz. Yedek ve taşıma için çark simgesindeki Ayarlar\'ı kullan.</p>';
 }
 // Altın ve döviz kayıtları, kendi toplamıyla (hep TL).
 function fxPanel() {
@@ -1857,7 +1927,7 @@ function viewPortfoy() {
     <label>Başka cihazdan gelen kodu yapıştır<textarea id="pimp" rows="3" placeholder="kp1. ile başlayan kod">${esc(S.pimp)}</textarea></label>
     <div class="acts"><button class="btn" id="pdoimp">İçe aktar</button></div><div class="err" id="pimperr"></div>
     <span class="hint">İçe aktarınca bu cihazdaki portföy kodla değiştirilir.</span></div></section>`;
-  return head + fail + body + closedP + alertsPanel(kind) + notifPanel() + backup;
+  return head + fail + body + closedP + alertsPanel(kind) + rulesPanel() + notifPanel() + morningPanel() + backup;
 }
 function showSheet(html, label) {
   $('#sheet').setAttribute('aria-label', label); $('#sheet').innerHTML = html; $('#scrim').hidden = false; S.sel = null;
@@ -1947,11 +2017,11 @@ function calcFlash(it, f) {
   return '';
 }
 function afterPortChange() {
-  savePort(); closeSheet(); syncPushSoon();
+  savePort(); closeSheet(); syncRuleAlerts(); syncPushSoon();
   loadPortCoins().then(render); render();
 }
 function importPort(list) {
-  S.port = list; savePort(); S.pcoins = {};
+  S.port = list; savePort(); S.pcoins = {}; syncRuleAlerts();
   S.flash = list.length + ' varlık yüklendi. Coin ya da Hisse tarafında Portföy sekmesine bak.';
   loadPortCoins().then(render); render(); syncPushSoon();
 }
@@ -1963,20 +2033,7 @@ const DEMO_PORT = [['c', 'bitcoin', 'btc', 'Bitcoin', 0.02, 50000, 'TRY', 'Binan
 function buildFxItems() {
   const f = S.fx, o = {};
   if (f) {
-    const mk = (id, name, symbol, price, c24, x) => ({ id, kind: 'fx', name, symbol, price, c24, c7: null, c30: null, cur: 'TRY', fx: 'TRY', spark: [], image: '', dom: '', a: { signal: 'DÖVİZ', cls: 's-stable', score: 0, risk: null, st: null, reasons: [] }, ...x });
-    if (S.gold) {
-      const gram = (S.gold.usdOz / 31.1035) * f.USD, ch = num(S.gold.chg);
-      // [id, ad, sembol, saf altın gramı, kısa simge, miktar birimi, alt yazı]
-      for (const [id, nm, sy, g, av, ul, sub] of [
-        ['fx:gold', 'Gram altın', 'gram', 0.995, 'Au', 'gram altın', '1 gram · 24 ayar'], ['fx:ceyrek', 'Çeyrek altın', 'çeyrek', 1.75 * 0.916, '¼', 'çeyrek altın', '1,75 g · 22 ayar'],
-        ['fx:yarim', 'Yarım altın', 'yarım', 3.5 * 0.916, '½', 'yarım altın', '3,5 g · 22 ayar'], ['fx:tam', 'Tam altın', 'tam', 7 * 0.916, '1', 'tam altın', '7 g · 22 ayar'],
-        ['fx:ata', 'Cumhuriyet (Ata) altını', 'ata', 7.216 * 0.916, 'At', 'Cumhuriyet altını', '7,216 g · 22 ayar'], ['fx:22', '22 ayar altın (bilezik)', '22 ayar', 0.916, '22', 'gram 22 ayar altın', '1 gram · 22 ayar'],
-        ['fx:18', '18 ayar altın', '18 ayar', 0.75, '18', 'gram 18 ayar altın', '1 gram · 18 ayar'], ['fx:14', '14 ayar altın', '14 ayar', 0.585, '14', 'gram 14 ayar altın', '1 gram · 14 ayar'],
-      ]) o[id] = mk(id, nm, sy, id === 'fx:gold' ? gram : gram * g, ch, { g: true, av, ul, sub });
-      o['fx:ons'] = mk('fx:ons', 'Ons altın', 'ons', S.gold.usdOz * f.USD, ch, { g: true, av: 'oz', ul: 'ons altın', sub: '1 ons · ' + money(S.gold.usdOz, 'USD') });
-    }
-    o['fx:usd'] = mk('fx:usd', 'Amerikan doları', 'USD', f.USD, null, { av: '$', ul: 'dolar', sub: '1 USD · TL' });
-    o['fx:eur'] = mk('fx:eur', 'Euro', 'EUR', f.EUR, null, { av: '€', ul: 'euro', sub: '1 EUR · TL' });
+    for (const x of fxTable(f.USD, f.EUR, S.gold && S.gold.usdOz, S.gold && S.gold.chg)) o[x.id] = { ...x, kind: 'fx', c7: null, c30: null, cur: 'TRY', fx: 'TRY', spark: [], image: '', dom: '', a: { signal: 'DÖVİZ', cls: 's-stable', score: 0, risk: null, st: null, reasons: [] } };
   }
   S.pfx = o;
 }
@@ -2204,6 +2261,48 @@ function setKind(k) {
   if (k === 'fx') { S.fxAt = 0; loadFx().then(() => { if ($('#scrim').hidden) render(); }); }
 }
 
+/* ---------- Otomatik kurallar (maliyete göre alarm) ---------- */
+// Kural açıkken her varlık için maliyetin altına/üstüne iki alarm kurulur; mevcut alarm sistemiyle çalışır, sunucuya yalnız hedef fiyat gider.
+function syncRuleAlerts() {
+  const r = S.rules, want = new Map();
+  if (r.on) {
+    for (const h of S.port) {
+      if (!(h.qty > 0) || !(num(h.cost) > 0)) continue;
+      const k = h.kind === 'coin' ? 'c' : h.kind === 'fx' ? 'f' : 's', ccy = h.kind === 'coin' ? 'TRY' : h.ccy || 'TRY';
+      const base = { k, id: h.id, sym: h.sym, name: h.name, ccy, done: null };
+      if (r.loss > 0) want.set('r' + h.u + 'l', { ...base, u: 'r' + h.u + 'l', dir: 'dn', price: Number((h.cost * (1 - r.loss / 100)).toPrecision(6)), n: `maliyetinin %${r.loss} altına indi` });
+      if (r.gain > 0) want.set('r' + h.u + 'g', { ...base, u: 'r' + h.u + 'g', dir: 'up', price: Number((h.cost * (1 + r.gain / 100)).toPrecision(6)), n: `maliyetine göre %${r.gain} kâra geçti` });
+    }
+  }
+  let ch = false;
+  const keep = [];
+  for (const a of S.alerts) {
+    if (!a.n) { keep.push(a); continue; }
+    const w = want.get(a.u);
+    if (!w) { ch = true; continue; }
+    want.delete(a.u);
+    if (a.price !== w.price || a.n !== w.n || a.ccy !== w.ccy) { keep.push(w); ch = true; } else keep.push(a);
+  }
+  for (const w of want.values()) { if (keep.length >= 40) break; keep.push(w); ch = true; }
+  if (ch) { S.alerts = keep; saveAlerts(); syncPushSoon(); }
+}
+function rulesPanel() {
+  const r = S.rules;
+  return `<section class="panel" style="margin-top:14px"><h2>Otomatik kurallar</h2>
+    <p class="sub" style="margin:0 0 8px">Maliyetini girdiğin her varlık için haber vereyim: fiyat maliyetinin belirlediğin oranda altına inerse ya da üstüne çıkarsa bildirim gelir. Tek tek alarm kurmana gerek kalmaz.</p>
+    <div class="pfform"><label>Maliyetin yüzde kaç altına inince haber vereyim? <input id="rloss" inputmode="decimal" value="${r.loss}" placeholder="10"></label>
+    <label>Maliyetinin yüzde kaç üstüne (kâra) çıkınca haber vereyim? <input id="rgain" inputmode="decimal" value="${r.gain}" placeholder="25"></label>
+    <div class="acts"><button class="btn ${r.on ? '' : 'primary'}" id="rtoggle">${r.on ? 'Kuralları kapat' : 'Kuralları aç'}</button></div></div>
+    <p class="rnote" style="margin:10px 0 0">Eşiği zaten geçmiş bir varlık için kural açılınca bir kez hemen haber verilir. Maliyeti boş olan varlıklar için kural çalışmaz. Kurallardan doğan alarmlar "Fiyat alarmları" bölümünde "otomatik" etiketiyle görünür.</p></section>`;
+}
+function morningPanel() {
+  const m = S.morning, hs = [6, 7, 8, 9, 10, 11];
+  return `<section class="panel" style="margin-top:14px"><h2>Sabah özeti</h2>
+    <p class="sub" style="margin:0 0 8px">Her sabah seçtiğin saatte tek bir bildirim: izlediklerinden en çok yükselen ve düşen, Azalt/Sat sinyali verenler, dolar, euro ve gram altın. ${S.push.on ? '' : '<b>Arka plan bildirimleri kapalıysa çalışmaz;</b> yukarıdaki Bildirimler bölümünden aç.'}</p>
+    <div class="pfform"><label>Saat<select id="mhour">${hs.map((h) => `<option value="${h}"${m.h === h ? ' selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('')}</select></label>
+    <div class="acts"><button class="btn ${m.on ? '' : 'primary'}" id="mtoggle">${m.on ? 'Sabah özetini kapat' : 'Sabah özetini aç'}</button></div></div>
+    <p class="rnote" style="margin:10px 0 0">Özet, sunucuda yalnızca izlediğin varlıkların adından hazırlanır; miktarların ve maliyetlerin kullanılmaz. Saat, Türkiye saatidir; kontrol 10-15 dakikada bir yapıldığı için birkaç dakika geç gelebilir.</p></section>`;
+}
 /* ---------- Görünüm (tema, yazı boyutu) ve tam yedek ---------- */
 const FZS = [[0.9, 'Küçük'], [1, 'Normal'], [1.12, 'Büyük'], [1.25, 'Çok büyük']];
 function applyLook() {
@@ -2211,7 +2310,7 @@ function applyLook() {
   if (S.theme === 'light' || S.theme === 'dark') r.dataset.theme = S.theme; else delete r.dataset.theme;
   r.style.zoom = S.fz && S.fz !== 1 ? String(S.fz) : '';
 }
-const BK_KEYS = ['favs', 'alerts', 'theme', 'fz', 'cur', 'pcur', 'tr', 'pmode'];
+const BK_KEYS = ['favs', 'alerts', 'theme', 'fz', 'cur', 'pcur', 'tr', 'pmode', 'rules', 'morning'];
 function backupData() {
   const d = { app: 'kripto-pusula', v: 1, at: new Date().toISOString(), code: S.port.length ? portCode() : '' };
   for (const k of BK_KEYS) d[k] = store.get(k, null);
@@ -2228,7 +2327,9 @@ function restoreData(d) {
   if (['TRY', 'USD', 'EUR'].includes(d.pcur)) { S.pcur = d.pcur; store.set('pcur', d.pcur); }
   if (['deger', 'benim', 'grup'].includes(d.pmode)) { S.pmode = d.pmode; store.set('pmode', d.pmode); }
   if (typeof d.tr === 'boolean') { S.tr = d.tr; store.set('tr', d.tr); }
-  applyLook(); loadPortCoins().then(render); syncPushSoon();
+  if (d.rules && typeof d.rules === 'object') { S.rules = { on: !!d.rules.on, loss: d.rules.loss > 0 && d.rules.loss < 100 ? d.rules.loss : 10, gain: d.rules.gain > 0 ? d.rules.gain : 25 }; store.set('rules', S.rules); }
+  if (d.morning && typeof d.morning === 'object') { S.morning = { on: !!d.morning.on, h: d.morning.h >= 6 && d.morning.h <= 11 ? d.morning.h : 9 }; store.set('morning', S.morning); }
+  applyLook(); syncRuleAlerts(); loadPortCoins().then(render); syncPushSoon();
   return '';
 }
 async function shareText(title, text) {
@@ -2258,8 +2359,8 @@ function openSettings(msg, bad) {
 /* ---------- Bildirimden açma ---------- */
 // Bildirime tıklanınca ilgili coin/hisse dünyasına geçip detay sayfasını açar (veri gelene kadar bekler).
 function openFromNote(k, id) {
-  if (!id || (k !== 'c' && k !== 's')) return;
-  setKind(k === 's' ? 'stock' : 'coin');
+  if (!id || (k !== 'c' && k !== 's' && k !== 'f')) return;
+  setKind(k === 's' ? 'stock' : k === 'f' ? 'fx' : 'coin');
   let n = 0;
   const t = setInterval(() => {
     n++;
@@ -2287,6 +2388,12 @@ setInterval(checkUpdate, 600000);
 /* ---------- Olaylar ---------- */
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button, .scrim'); if (!t) return;
+  if (t.id === 'rtoggle') {
+    const l = parseNumTr($('#rloss').value), g = parseNumTr($('#rgain').value);
+    S.rules = { on: !S.rules.on, loss: l > 0 && l < 100 ? l : 10, gain: g > 0 && g <= 1000 ? g : 25 };
+    store.set('rules', S.rules); syncRuleAlerts(); checkAlerts(); render(); return;
+  }
+  if (t.id === 'mtoggle') { S.morning = { on: !S.morning.on, h: Number($('#mhour').value) || 9 }; store.set('morning', S.morning); syncPushSoon(); render(); return; }
   if (t.id === 'fxretry') { S.fxAt = 0; loadFx().then(() => render()); return; }
   if (t.id === 'pfxadd') { const id = t.dataset.fxid; closeSheet(); openPortAdd(); pickItem(id); return; }
   if (t.id === 'setbtn') { openSettings(); return; }
@@ -2323,7 +2430,7 @@ document.addEventListener('click', (e) => {
     const c = byId(S.sel), v = parseNumTr($('#alp').value);
     if (!c || !(v > 0)) { $('#alerr').textContent = 'Hedef fiyatı sayı olarak yaz (ör. 4.200.000).'; return; }
     if (S.alerts.length >= 40) { $('#alerr').textContent = 'En fazla 40 alarm kurabilirsin; eskilerini sil.'; return; }
-    S.alerts.push({ u: 'a' + Date.now().toString(36) + S.alerts.length, k: isStock(c) ? 's' : 'c', id: c.id, sym: String(c.symbol), name: c.name, dir: alertDir(v, c.price), price: v, ccy: alertCcyOf(c), done: null });
+    S.alerts.push({ u: 'a' + Date.now().toString(36) + S.alerts.length, k: c.kind === 'fx' ? 'f' : isStock(c) ? 's' : 'c', id: c.id, sym: String(c.symbol), name: c.name, dir: alertDir(v, c.price), price: v, ccy: alertCcyOf(c), done: null });
     saveAlerts(); syncPushSoon(); openSheet(S.sel); render();
   }
   else if (t.dataset.aldel) { S.alerts = S.alerts.filter((a) => a.u !== t.dataset.aldel); saveAlerts(); syncPushSoon(); if (S.sel) openSheet(S.sel); render(); }
@@ -2335,13 +2442,13 @@ document.addEventListener('click', (e) => {
     if ($('#txp').value.trim() && pr === null) { $('#txerr').textContent = 'Fiyatı sayı olarak yaz ya da boş bırak.'; return; }
     const err = txAdd(h, { t: $('#txt').value === 's' ? 's' : 'b', q, p: pr, d: $('#txd').value || null });
     if (err) { $('#txerr').textContent = err; return; }
-    h.est = false; savePort(); syncPushSoon(); openPortEdit(S.psel); render();
+    h.est = false; savePort(); syncRuleAlerts(); syncPushSoon(); openPortEdit(S.psel); render();
   }
   else if (t.dataset.txdel) {
     const h = S.port.find((x) => x.u === S.psel); if (!h) return;
     const err = txRemove(h, Number(t.dataset.txdel));
     if (err) { $('#txerr').textContent = err; return; }
-    savePort(); syncPushSoon(); openPortEdit(S.psel); render();
+    savePort(); syncRuleAlerts(); syncPushSoon(); openPortEdit(S.psel); render();
   }
   else if (t.id === 'padd') openPortAdd();
   else if (t.id === 'psave' || t.id === 'pupd') {
@@ -2386,6 +2493,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('input', (e) => {
   const id = e.target.id;
+  if (id === 'cvamt') { S.cv.amt = e.target.value; cvUpdate(); return; }
   if (id === 'pq') { fillPres(); return; }
   if (id === 'pimp') { S.pimp = e.target.value; return; }
   if (id === 'pqty' || id === 'pcost' || id === 'pamt') {
@@ -2405,6 +2513,8 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'q') { S.q = e.target.value; S.shown = 40; render(); } else if (e.target.id === 'rq') { S.rq = e.target.value; S.rshown = 30; render(); }
 });
 document.addEventListener('change', (e) => {
+  if (e.target.id === 'mhour') { S.morning = { ...S.morning, h: Number(e.target.value) || 9 }; store.set('morning', S.morning); syncPushSoon(); return; }
+  if (e.target.id === 'cvu') { S.cv.u = e.target.value; cvUpdate(); return; }
   if (e.target.id === 'bkfile') {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     const rd = new FileReader();
@@ -2417,6 +2527,7 @@ document.addEventListener('change', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#scrim').hidden) closeSheet(); });
 $('#cur').value = S.cur;
 applyLook();
+syncRuleAlerts();
 try { if (/^#p=/.test(location.hash)) { const l = portDecode(location.hash); if (l && l.length) S.pimport = l; } } catch (e) {}
 render();
 S.bootP = load();

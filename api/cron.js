@@ -3,7 +3,7 @@
 const E = require('./_engine');
 const store = require('./_store');
 const push = require('./_push');
-const coinsApi = require('./coins'), stocksApi = require('./stocks'), newsApi = require('./news');
+const coinsApi = require('./coins'), stocksApi = require('./stocks'), newsApi = require('./news'), fxApi = require('./fx');
 let lastRun = 0;
 // Diğer uç noktaları HTTP'siz, doğrudan (önbellekleriyle) çağırır.
 async function callApi(fn, path) {
@@ -40,10 +40,13 @@ module.exports = async function handler(req, res) {
     const recs = (await store.mgetJson(ids.map((i) => 'sub:' + i))).map((r, i) => (r ? { id: ids[i], r } : null)).filter(Boolean);
     if (!recs.length) return out({ ok: true, subs: 0 });
     // Hangi varlıklar lazım?
-    const coinAll = new Map(), stockAny = { v: false }, coinCcy = {};
+    const coinAll = new Map(), stockAny = { v: false }, coinCcy = {}; let fxNeed = false;
+    const ihour = new Date(Date.now() + 3 * 3600e3).getUTCHours();
+    const due = (r) => Number.isInteger(r.morning) && ihour >= r.morning && ihour < r.morning + 3 && !(r.done && r.done.morning === day);
     for (const { r } of recs) {
+      if (due(r)) fxNeed = true;
       for (const w of r.watch) { if (w.k === 'c') coinAll.set(w.id, w); else stockAny.v = true; }
-      for (const a of r.alerts) { if (a.done) continue; if (a.k === 'c') { coinAll.set(a.id, coinAll.get(a.id) || a); (coinCcy[a.ccy] = coinCcy[a.ccy] || new Map()).set(a.id, a); } else stockAny.v = true; }
+      for (const a of r.alerts) { if (a.done) continue; if (a.k === 'f') fxNeed = true; else if (a.k === 'c') { coinAll.set(a.id, coinAll.get(a.id) || a); (coinCcy[a.ccy] = coinCcy[a.ccy] || new Map()).set(a.id, a); } else stockAny.v = true; }
     }
     const [cn, sn] = await Promise.all([coinAll.size ? callApi(newsApi, '/api/news').catch(() => null) : null, stockAny.v ? callApi(newsApi, '/api/news?kind=stock').catch(() => null) : null]);
     let coinsTry = {}, stocks = {}; const priceBy = {};
@@ -53,12 +56,17 @@ module.exports = async function handler(req, res) {
       const raw = (await callApi(stocksApi, '/api/stocks')).json;
       for (const it of E.buildStockWorld(raw, (sn && sn.json.news) || []).items) stocks[it.id] = it;
     }
+    let fxt = [];
+    if (fxNeed) { try { const j = (await callApi(fxApi, '/api/fx')).json; fxt = E.fxTable(j.USD, j.EUR, j.gold && j.gold.usdOz, j.gold && j.gold.chg); } catch (e) { fxt = []; } }
+    const fxPrice = {}; for (const x of fxt) fxPrice[x.id] = x.price;
     let sent = 0, gone = 0;
     for (const { id, r } of recs) {
       const w = E.watchMessages(r.watch, (x) => (x.k === 'c' ? coinsTry[x.id] : stocks[x.id]), r.sigs, r.done, day);
-      const am = E.alertsRun(r.alerts, (a) => { const it = a.k === 'c' ? (priceBy[a.ccy] || {})[a.id] : stocks[a.id]; return it ? it.price : null; }, now);
-      r.sigs = { ...r.sigs, ...w.sigs }; r.done = w.done;
-      const msgs = [...am, ...w.msgs].slice(0, 6);
+      const am = E.alertsRun(r.alerts, (a) => { if (a.k === 'f') return fxPrice[a.id] ?? null; const it = a.k === 'c' ? (priceBy[a.ccy] || {})[a.id] : stocks[a.id]; return it ? it.price : null; }, now);
+      const isDue = due(r); r.sigs = { ...r.sigs, ...w.sigs }; r.done = w.done;
+      const mm = isDue ? E.morningMessage(r.watch, (x) => (x.k === 'c' ? coinsTry[x.id] : stocks[x.id]), fxt) : null;
+      if (isDue && mm) r.done.morning = day;
+      const msgs = [...(mm ? [mm] : []), ...am, ...w.msgs].slice(0, 6);
       if (msgs.length) {
         for (const m of msgs) await store.rpush('msg:' + id, m);
         await store.ltrim('msg:' + id, -20, -1); await store.expire('msg:' + id, 259200);

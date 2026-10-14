@@ -122,6 +122,38 @@ const call = (fn, url, method, body) => new Promise((resolve, reject) => {
   ok(r.json.ok && pushes.length === before + 1, 'deneme bildirimi gönderildi');
   r = await call(pushApi, '/api/push?a=inbox', 'POST', { endpoint });
   ok(r.json.msgs.length === 1 && r.json.msgs[0].title === 'Deneme bildirimi', 'deneme mesajı gelen kutusunda');
+  // ---- sabah özeti, altın/döviz alarmı, otomatik kural alarmı ----
+  stub('../api/fx', async (req, res) => res.end(JSON.stringify({ updated: Date.now(), TRY: 1, USD: 41, EUR: 47, gold: { usdOz: 2700, chg: 0.5 } })));
+  const ep2 = base + '/ok/morning1', sub2 = { endpoint: ep2, keys: { p256dh: 'p', auth: 'a' } }, id2 = P.idOf(ep2);
+  const alerts2 = [
+    { u: 'f1', k: 'f', id: 'fx:usd', sym: 'USD', name: 'Amerikan doları', dir: 'up', price: 40, ccy: 'TRY' },
+    { u: 'f2', k: 'f', id: 'fx:gold', sym: 'gram', name: 'Gram altın', dir: 'up', price: 99999, ccy: 'TRY' },
+    { u: 'rb1l', k: 'c', id: 'bitcoin', sym: 'btc', name: 'Bitcoin', dir: 'dn', price: 5000000, ccy: 'TRY', n: 'maliyetinin %10 altına indi' }];
+  r = await call(pushApi, '/api/push?a=sync', 'POST', { sub: sub2, watch: [watch[0], watch[1]], alerts: alerts2, morning: 9 });
+  ok(r.json.ok && JSON.parse(db.get('kp:sub:' + id2)).morning === 9, 'sync: sabah özeti saati ve döviz alarmı kaydedildi');
+  r = await call(pushApi, '/api/push?a=sync', 'POST', { sub: { endpoint: base + '/ok/morning2', keys: {} }, watch: [], alerts: [], morning: 99 });
+  ok(JSON.parse(db.get('kp:sub:' + P.idOf(base + '/ok/morning2'))).morning === null, 'geçersiz sabah saati yok sayılır');
+  await call(pushApi, '/api/push?a=off', 'POST', { endpoint: base + '/ok/morning2' });
+  const realNow = Date.now, fixed = Date.UTC(2026, 9, 14, 6, 30); // İstanbul 09:30
+  Date.now = () => fixed;
+  delete require.cache[cronMod]; const cron4 = require('../api/cron');
+  r = await call(cron4, '/api/cron?key=gizli');
+  Date.now = realNow;
+  r = await call(pushApi, '/api/push?a=inbox', 'POST', { endpoint: ep2 });
+  const t2 = r.json.msgs.map((m) => m.title + ' // ' + m.body);
+  console.log('   sabah kutusu:', t2.join(' | '));
+  ok(t2.some((x) => /^Günaydın, piyasa özeti/.test(x) && /Dolar ₺41,00/.test(x) && /Gram altın/.test(x) && /Düşen Coin/.test(x)), 'sabah özeti geldi: hareketler, dolar ve gram altın');
+  ok(t2.some((x) => /Amerikan doları: hedef fiyata ulaştı/.test(x)), 'dolar alarmı çaldı');
+  ok(!t2.some((x) => /Gram altın: hedef/.test(x)), 'ulaşılmayan altın alarmı çalmadı');
+  ok(t2.some((x) => /Bitcoin: maliyetinin %10 altına indi/.test(x)), 'otomatik kural alarmı kendi notuyla çaldı');
+  ok(JSON.parse(db.get('kp:sub:' + id2)).done.morning === '2026-10-14', 'sabah özetinin günü kaydedildi');
+  Date.now = () => fixed + 20 * 60e3;
+  delete require.cache[cronMod]; const cron5 = require('../api/cron');
+  await call(cron5, '/api/cron?key=gizli');
+  Date.now = realNow;
+  r = await call(pushApi, '/api/push?a=inbox', 'POST', { endpoint: ep2 });
+  ok(!r.json.msgs.some((m) => /Günaydın/.test(m.title)), 'aynı gün ikinci kez sabah özeti gitmedi');
+  await call(pushApi, '/api/push?a=off', 'POST', { endpoint: ep2 });
   // geçersiz (silinmiş) abonelik temizlenir
   const gone = base + '/gone/zzz';
   await call(pushApi, '/api/push?a=sync', 'POST', { sub: { endpoint: gone }, watch: [{ k: 'c', id: 'bitcoin', sym: 'btc', name: 'Bitcoin' }], alerts: [{ u: 'g1', k: 'c', id: 'bitcoin', sym: 'btc', name: 'Bitcoin', dir: 'up', price: 1, ccy: 'TRY' }] });

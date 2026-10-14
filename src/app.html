@@ -1205,7 +1205,7 @@ const isStock = (it) => it.kind === 'stock';
 const pm = (it, v) => money(v, isStock(it) ? it.cur : it.fx);
 const short = (it) => esc(String(it.symbol).slice(0, 3).toUpperCase());
 function avatar(it) {
-  if (it.kind === 'fx') return `<span class="av">${esc(it.id === 'fx:gold' ? 'Au' : it.id === 'fx:usd' ? '$' : '€')}</span>`;
+  if (it.kind === 'fx') return `<span class="av">${esc(it.av || '?')}</span>`;
   if (isStock(it)) return `<span class="av logo">${short(it)}${it.dom ? `<img src="${esc(favUrl(it.dom))}" data-d="${esc(it.dom)}" data-f="0" alt="" loading="lazy" onload="this.classList.add('ok')" onerror="imgFail(this)">` : ''}</span>`;
   return `<span class="av">${short(it)}<img src="${esc(it.image || iconUrl(it.symbol))}" data-s="${esc(String(it.symbol))}" data-f="${it.image ? '0' : '1'}" alt="" loading="lazy" onload="this.classList.add('ok')" onerror="imgFail(this)"></span>`;
 }
@@ -1519,23 +1519,25 @@ function render() {
 /* ---------- Altın ve döviz dünyası ---------- */
 function viewFxPiyasa() {
   if (!S.fx) return '<div class="loading">Kurlar yükleniyor…<br><button class="btn retry" id="fxretry">Tekrar dene</button></div>';
-  const l = Object.values(S.pfx);
+  const all = Object.values(S.pfx), gl = all.filter((x) => x.g), dl = all.filter((x) => !x.g);
   const parity = S.fx.USD > 0 ? S.fx.EUR / S.fx.USD : null;
-  return `<section class="panel"><h2>Güncel fiyatlar</h2><div class="rows">${l.map((it) => `<button class="row prow" data-item="${esc(it.id)}">
-      <span class="who">${avatar(it)}<span class="nm"><b>${esc(it.name)}</b><span>${it.id === 'fx:gold' ? '1 gram · TL' : '1 ' + esc(it.symbol) + ' · TL'}</span></span></span>
-      <span class="px"><span class="num">${money(it.price, 'TRY')}</span>${num(it.c24) !== null ? `<span class="chg num ${cc(it.c24)}">${pct(it.c24)}</span>` : '<span class="chg">—</span>'}</span></button>`).join('')}</div>
-    ${S.gold ? `<div class="sub" style="margin-top:8px">Ons altın: <b class="num">${money(S.gold.usdOz, 'USD')}</b>${parity ? ` · EUR/USD: <b class="num">${parity.toFixed(4).replace('.', ',')}</b>` : ''}</div>` : (parity ? `<div class="sub" style="margin-top:8px">EUR/USD: <b class="num">${parity.toFixed(4).replace('.', ',')}</b></div>` : '')}
-    <p class="rnote" style="margin:10px 0 0">Bir satıra basınca saatlik, günlük, haftalık, aylık ve yıllık grafiği açılır. Dolar ve euro kuru uluslararası piyasa kurudur; banka, döviz bürosu ve kuyumcu fiyatından biraz farklı olabilir. Gram altın, Binance'teki altına bağlı token (PAXG) fiyatından yaklaşık hesaplanır. Bu bölümde al-sat sinyali verilmez.</p></section>`;
+  const rows = (l) => `<div class="rows">${l.map((it) => `<button class="row prow" data-item="${esc(it.id)}">
+      <span class="who">${avatar(it)}<span class="nm"><b>${esc(it.name)}</b><span>${esc(it.sub || '')}</span></span></span>
+      <span class="px"><span class="num">${money(it.price, 'TRY')}</span>${num(it.c24) !== null ? `<span class="chg num ${cc(it.c24)}">${pct(it.c24)}</span>` : '<span class="chg">—</span>'}</span></button>`).join('')}</div>`;
+  return `${gl.length ? `<section class="panel"><h2>Altın</h2>${rows(gl)}<div class="sub" style="margin-top:8px">Ons altın: <b class="num">${money(S.gold.usdOz, 'USD')}</b></div>
+      <p class="rnote" style="margin:8px 0 0">Fiyatlar saf altın değeri üzerinden yaklaşık hesaplanır (çeyrek, yarım, tam ve Ata için 22 ayar gramajıyla). Kuyumcu ve banka fiyatları işçilik ve alış-satış farkı yüzünden genelde yüzde birkaç farklı olur.</p></section>` : '<section class="panel"><div class="empty">Altın fiyatı şu an alınamadı.</div></section>'}
+    <section class="panel" style="margin-top:14px"><h2>Döviz</h2>${rows(dl)}${parity ? `<div class="sub" style="margin-top:8px">EUR/USD: <b class="num">${parity.toFixed(4).replace('.', ',')}</b></div>` : ''}
+    <p class="rnote" style="margin:8px 0 0">Kurlar uluslararası piyasa kurudur; banka ve döviz bürosu fiyatından biraz farklı olabilir. Satıra basınca saatlik, günlük, haftalık, aylık ve yıllık grafik açılır. Bu bölümde al-sat sinyali verilmez.</p></section>`;
 }
 function openFxSheet(c) {
   S.sel = c.id; chartStart(c);
-  const gold = c.id === 'fx:gold', par = S.fx && S.fx.USD > 0 ? S.fx.EUR / S.fx.USD : null;
+  const gold = !!c.g, par = S.fx && S.fx.USD > 0 ? S.fx.EUR / S.fx.USD : null;
   const metric = (k, v) => `<div><small>${k}</small><span class="num">${v}</span></div>`;
   const metrics = gold
     ? (S.gold ? metric('Ons altın', money(S.gold.usdOz, 'USD')) + metric('Gram altın (dolar)', money(S.gold.usdOz / 31.1035, 'USD')) : '')
     : metric(c.id === 'fx:usd' ? 'Euro karşısında' : 'Dolar karşısında', par ? (c.id === 'fx:usd' ? '1 € = ' + par.toFixed(4).replace('.', ',') + ' $' : '1 € = ' + par.toFixed(4).replace('.', ',') + ' $') : '—');
   $('#sheet').setAttribute('aria-label', c.name + ' ayrıntısı');
-  $('#sheet').innerHTML = `<div class="sh-head">${avatar(c)}<span class="nm"><h3>${esc(c.name)}</h3><span>${gold ? '1 gram altın' : '1 ' + esc(c.symbol)} · Türk lirası</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
+  $('#sheet').innerHTML = `<div class="sh-head">${avatar(c)}<span class="nm"><h3>${esc(c.name)}</h3><span>${esc(c.sub || '')} · Türk lirası</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
     <p class="price num" id="sprice">${money(c.price, 'TRY')}</p>
     ${num(c.c24) !== null ? `<div class="chgrow"><span>24 sa <b class="num ${cc(c.c24) === 'up' ? 't-up' : 't-dn'}">${pct(c.c24)}</b></span></div>` : ''}
     ${chartPanel(c)}
@@ -1833,7 +1835,7 @@ function formHtml(it, h) {
   const stk = isStock(it), cur = stk ? it.cur : 'TRY', sym = String(stk ? it.symbol : it.symbol).toUpperCase();
   const qtyBlock = h && h.tx
     ? `<div class="sub">Miktar <b class="num">${fmtQty(h.qty)}</b> · ortalama maliyet <b class="num">${num(h.cost) !== null ? money(h.cost, cur) : 'bilinmiyor'}</b><br>Bunlar aşağıdaki işlemlerden hesaplanır. Düzeltmek için işlem ekle ya da sil.</div>`
-    : `<label>Miktar (${it.kind === 'fx' ? (it.id === 'fx:gold' ? 'kaç gram altın' : 'kaç ' + esc(it.name)) : 'kaç ' + (stk ? 'adet hisse' : esc(sym))})<input id="pqty" inputmode="decimal" autocomplete="off" placeholder="örn. 0,05" value="${h ? esc(inNum(h.qty)) : ''}"><span class="hint" id="pqprev"></span></label>
+    : `<label>Miktar (${it.kind === 'fx' ? ('kaç ' + esc(it.ul || it.name)) : 'kaç ' + (stk ? 'adet hisse' : esc(sym))})<input id="pqty" inputmode="decimal" autocomplete="off" placeholder="örn. 0,05" value="${h ? esc(inNum(h.qty)) : ''}"><span class="hint" id="pqprev"></span></label>
       <label>Ya da kaç ${curSym(cur)} tutarında aldın? (miktarı ben hesaplarım)<input id="pamt" inputmode="decimal" autocomplete="off" placeholder="örn. 5000"><span class="hint" id="pahint"></span></label>
       <label>Ortalama alış fiyatı, tane başına (${curSym(cur)}) · boş bırakılabilir<input id="pcost" inputmode="decimal" autocomplete="off" placeholder="bilmiyorsan boş bırak" value="${h ? esc(inNum(h.cost)) : ''}"><span class="hint" id="pcprev"></span></label>`;
   return `<div class="who" style="margin-top:6px">${avatar(it)}<span class="nm"><b>${esc(it.name)}</b><span>${esc(sym)}${h ? '' : ' · ' + money(it.price, cur)}</span></span></div>
@@ -1929,10 +1931,20 @@ const DEMO_PORT = [['c', 'bitcoin', 'btc', 'Bitcoin', 0.02, 50000, 'TRY', 'Binan
 function buildFxItems() {
   const f = S.fx, o = {};
   if (f) {
-    const mk = (id, name, symbol, price, c24) => ({ id, kind: 'fx', name, symbol, price, c24, c7: null, c30: null, cur: 'TRY', fx: 'TRY', spark: [], image: '', dom: '', a: { signal: 'DÖVİZ', cls: 's-stable', score: 0, risk: null, st: null, reasons: [] } });
-    if (S.gold) o['fx:gold'] = mk('fx:gold', 'Gram altın', 'gram', (S.gold.usdOz / 31.1035) * f.USD, num(S.gold.chg));
-    o['fx:usd'] = mk('fx:usd', 'Amerikan doları', 'USD', f.USD, null);
-    o['fx:eur'] = mk('fx:eur', 'Euro', 'EUR', f.EUR, null);
+    const mk = (id, name, symbol, price, c24, x) => ({ id, kind: 'fx', name, symbol, price, c24, c7: null, c30: null, cur: 'TRY', fx: 'TRY', spark: [], image: '', dom: '', a: { signal: 'DÖVİZ', cls: 's-stable', score: 0, risk: null, st: null, reasons: [] }, ...x });
+    if (S.gold) {
+      const gram = (S.gold.usdOz / 31.1035) * f.USD, ch = num(S.gold.chg);
+      // [id, ad, sembol, saf altın gramı, kısa simge, miktar birimi, alt yazı]
+      for (const [id, nm, sy, g, av, ul, sub] of [
+        ['fx:gold', 'Gram altın', 'gram', 0.995, 'Au', 'gram altın', '1 gram · 24 ayar'], ['fx:ceyrek', 'Çeyrek altın', 'çeyrek', 1.75 * 0.916, '¼', 'çeyrek altın', '1,75 g · 22 ayar'],
+        ['fx:yarim', 'Yarım altın', 'yarım', 3.5 * 0.916, '½', 'yarım altın', '3,5 g · 22 ayar'], ['fx:tam', 'Tam altın', 'tam', 7 * 0.916, '1', 'tam altın', '7 g · 22 ayar'],
+        ['fx:ata', 'Cumhuriyet (Ata) altını', 'ata', 7.216 * 0.916, 'At', 'Cumhuriyet altını', '7,216 g · 22 ayar'], ['fx:22', '22 ayar altın (bilezik)', '22 ayar', 0.916, '22', 'gram 22 ayar altın', '1 gram · 22 ayar'],
+        ['fx:18', '18 ayar altın', '18 ayar', 0.75, '18', 'gram 18 ayar altın', '1 gram · 18 ayar'], ['fx:14', '14 ayar altın', '14 ayar', 0.585, '14', 'gram 14 ayar altın', '1 gram · 14 ayar'],
+      ]) o[id] = mk(id, nm, sy, id === 'fx:gold' ? gram : gram * g, ch, { g: true, av, ul, sub });
+      o['fx:ons'] = mk('fx:ons', 'Ons altın', 'ons', S.gold.usdOz * f.USD, ch, { g: true, av: 'oz', ul: 'ons altın', sub: '1 ons · ' + money(S.gold.usdOz, 'USD') });
+    }
+    o['fx:usd'] = mk('fx:usd', 'Amerikan doları', 'USD', f.USD, null, { av: '$', ul: 'dolar', sub: '1 USD · TL' });
+    o['fx:eur'] = mk('fx:eur', 'Euro', 'EUR', f.EUR, null, { av: '€', ul: 'euro', sub: '1 EUR · TL' });
   }
   S.pfx = o;
 }
@@ -2019,7 +2031,7 @@ async function chartLoad(c, silent) {
   if (!silent) { S.cstate = 'loading'; chartRefresh(c); }
   if (!chartCanFetch(c)) { S.cstate = 'err'; S.cser = null; chartRefresh(c); return; }
   try {
-    const q = c.kind === 'fx' ? (c.id === 'fx:gold' ? 'k=c&sym=PAXG' : `k=f&sym=${c.symbol}`) : isStock(c) ? `k=s&sym=${encodeURIComponent(c.symbol)}&mk=${c.mk}` : `k=c&sym=${encodeURIComponent(String(c.symbol).toUpperCase())}`;
+    const q = c.kind === 'fx' ? (c.g ? 'k=c&sym=PAXG' : `k=f&sym=${c.symbol}`) : isStock(c) ? `k=s&sym=${encodeURIComponent(c.symbol)}&mk=${c.mk}` : `k=c&sym=${encodeURIComponent(String(c.symbol).toUpperCase())}`;
     const j = await getJson(`/api/chart?${q}&p=${per}`, 12000);
     if (gen !== S.cgen || per !== S.cper || S.sel !== c.id) return;
     let v = j.v;

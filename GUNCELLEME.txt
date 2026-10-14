@@ -1,1 +1,1 @@
-Yeni: Altın ve Döviz bölümü: gram altın, dolar, euro fiyatları, dönem grafikleri ve kendi portföyün. Giriş ekranında ve üstteki düğmelerde.
+Yeni: Altın bölümünde çeyrek, yarım, tam, Ata, ons ve 22/18/14 ayar altın da var; portföye eklenebilir.

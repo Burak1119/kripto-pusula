@@ -1197,12 +1197,13 @@ function planInvest(cands, amount, risk) {
     const share = w[i] * invFrac, tl = invested * w[i];
     let qty = null, used = tl;
     if (num(x.ptry) !== null && x.ptry > 0) {
-      qty = x.kind === 'stock' ? Math.floor(tl / x.ptry) : Number((tl / x.ptry).toPrecision(6));
+      // BIST hissesi tam adet alınır; ABD hissesi (Midas'ta kesirli alınabilir) ve coin kesirli.
+      qty = x.kind === 'stock' && (x.cur || 'TRY') === 'TRY' ? Math.floor(tl / x.ptry) : x.kind === 'stock' ? Math.floor((tl / x.ptry) * 1e4) / 1e4 : Number((tl / x.ptry).toPrecision(6));
       used = qty * x.ptry;
     }
     spent += used;
     const why = (x.a.reasons || []).filter((r) => r.pos === true).slice(0, 2).map((r) => r.t);
-    return { id: x.id, name: x.name, symbol: x.symbol, kind: x.kind, signal: x.a.signal, score: x.a.score, risk: x.a.risk, share, tl, qty, used, why };
+    return { id: x.id, name: x.name, symbol: x.symbol, kind: x.kind, cur: x.cur || 'TRY', signal: x.a.signal, score: x.a.score, risk: x.a.risk, share, tl, qty, used, why };
   });
   return { wait: false, picks, cash: amount - spent, amount, pool: pool.length, cashPct, n };
 }
@@ -2318,7 +2319,7 @@ function priceTry(it) {
 function planScope() { const s = S.plan.scope; return s === 'cur' ? (S.kind === 'stock' ? 'stock' : 'coin') : s; }
 function planCands(scope) {
   const out = [];
-  const add = (it, kind) => out.push({ id: it.id, name: it.name, symbol: it.symbol, kind, a: it.a, ptry: priceTry(it) });
+  const add = (it, kind) => out.push({ id: it.id, name: it.name, symbol: it.symbol, kind, cur: kind === 'stock' ? it.cur || 'TRY' : 'USD', a: it.a, ptry: priceTry(it) });
   if (scope === 'coin' || scope === 'both') for (const c of S.coins) if (c.a && c.a.signal !== 'STABİL' && (c.rank || 9999) <= 100) add(c, 'coin');
   if (scope === 'stock' || scope === 'both') for (const c of S.sitems) if (c.a && c.a.st) add(c, 'stock');
   return out;
@@ -2340,12 +2341,18 @@ function planOutHtml() {
   const head = `<div class="sub" style="margin:10px 0 6px">${data}Bugün ${now} verilerine göre. Puanlar değişince öneri de değişir.</div>`;
   if (r.wait) return head + `<div class="panel" style="margin:0"><b>Şu an net bir alım adayı yok.</b><div class="sub">Seçtiğin risk seviyesinde puanı yüksek, aşırı ısınmamış ve Al sinyali veren varlık bulunamadı. Parayı bekletmek de bir karardır; birkaç saat ya da gün sonra yeniden bak. Risk seviyesini yükseltirsen daha fazla aday çıkabilir.</div></div>` + planDisc();
   const f = (v) => money(v, 'TRY');
-  const rows = r.picks.map((p) => `<button class="row prow plrow" data-item="${esc(p.id)}"><span class="who"><span class="nm"><b>${esc(p.name)}</b><span>${esc(String(p.symbol).toUpperCase())} · ${p.signal} · puan ${p.score} · risk ${esc(p.risk)}</span></span></span>
-      <span class="px"><span class="num">${f(p.tl)}</span><span class="chg num">%${Math.round(p.share * 100)}${p.qty !== null ? ' · ' + fmtQty(p.qty) + (p.kind === 'stock' ? ' adet' : ' ' + String(p.symbol).toUpperCase()) : ''}</span></span>
-      ${p.why.length ? `<span class="plwhy">${p.why.map((t) => '• ' + esc(t)).join('<br>')}</span>` : ''}</button>`).join('');
+  // Yabancı varlıklar (ABD/Avrupa hissesi, coinler) o paranın kendi cinsinden alınır: tutarı dolar/euro yaz, TL karşılığını altına.
+  const nat = (p) => (p.cur && p.cur !== 'TRY' ? fxConv(p.tl, 'TRY', p.cur, S.fx) : null);
+  const conv = {};
+  for (const p of r.picks) { const v = nat(p); if (v !== null) { conv[p.cur] = conv[p.cur] || { v: 0, tl: 0 }; conv[p.cur].v += v; conv[p.cur].tl += p.tl; } }
+  const rows = r.picks.map((p) => { const v = nat(p); return `<button class="row prow plrow" data-item="${esc(p.id)}"><span class="who"><span class="nm"><b>${esc(p.name)}</b><span>${esc(String(p.symbol).toUpperCase())} · ${p.signal} · puan ${p.score} · risk ${esc(p.risk)}</span></span></span>
+      <span class="px"><span class="num">${v !== null ? money(v, p.cur) : f(p.tl)}</span><span class="chg num">${v !== null ? '≈ ' + f(p.tl) + ' · ' : ''}%${Math.round(p.share * 100)}${p.qty !== null ? ' · ' + fmtQty(p.qty) + (p.kind === 'stock' ? ' adet' : ' ' + String(p.symbol).toUpperCase()) : ''}</span></span>
+      ${p.why.length ? `<span class="plwhy">${p.why.map((t) => '• ' + esc(t)).join('<br>')}</span>` : ''}</button>`; }).join('');
+  const NM = { USD: 'dolar', EUR: 'euro' }, cks = Object.keys(conv);
+  const convTxt = cks.length ? `<div class="sub" style="margin-top:8px">Yabancı olanlar ${cks.map((k) => NM[k] || k).join(' ve ')} ile alınır. Çevirmen gereken toplam: ${cks.map((k) => `<b class="num">${money(conv[k].v, k)}</b> (≈ ${f(conv[k].tl)})`).join(', ')}. Kur: 1 ${cks.map((k) => `${k === 'USD' ? '$' : '€'} = ${money(S.fx[k], 'TRY')}`).join(', 1 ')}.</div>` : '';
   const few = r.n < 3 ? `<p class="rnote warn" style="margin:8px 0 0">Yalnızca ${r.pool} uygun aday var; hepsini birden alıp tek yere yığılmamak için tutarın bir kısmı bekletiliyor.</p>` : '';
-  return head + `<div class="rows">${rows}</div>
-    <div class="sub" style="margin-top:8px">Bekletilecek (nakit ya da stabil): <b class="num">${f(r.cash)}</b>${r.picks.some((p) => p.kind === 'stock') ? ' (hisselerde tam adede yuvarlanınca artan para dahil)' : ''}</div>${few}
+  return head + `<div class="rows">${rows}</div>${convTxt}
+    <div class="sub" style="margin-top:8px">Bekletilecek (nakit ya da stabil): <b class="num">${f(r.cash)}</b>${r.picks.some((p) => p.kind === 'stock' && p.cur === 'TRY') ? ' (hisselerde tam adede yuvarlanınca artan para dahil)' : ''}</div>${few}
     <p class="rnote" style="margin:8px 0 0">Tek seferde almak yerine tutarı 2-3 parçaya bölüp birkaç güne yaymak, fiyat dalgalanmasının etkisini azaltır. Aldıktan sonra Portföy sekmesinden ekleyip takip edebilirsin.</p>` + planDisc();
 }
 const planDisc = () => '<p class="rnote" style="margin:8px 0 0"><b>Yatırım tavsiyesi değildir.</b> Puanlar geçmiş fiyat hareketinden ve haber başlıklarından otomatik hesaplanır; geleceği tahmin etmez, kâr garantisi vermez. Pano\'daki Sinyal karnesi bu puanların geçmişte ne kadar tuttuğunu gösterir. Kaybetmeyi göze alabileceğin tutarla işlem yap.</p>';

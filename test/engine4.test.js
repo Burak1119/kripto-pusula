@@ -66,4 +66,8 @@ pl = E.planInvest([cand('s1', 50, 'Düşük', 'AL', false, 33, 'stock'), cand('s
 ok(pl.picks.every((p) => Number.isInteger(p.qty)), 'hissede adet tam sayıya yuvarlanır');
 pl = E.planInvest([cand('x', 50, 'Düşük', 'AL', false, null), cand('y', 45, 'Düşük', 'AL', false, null), cand('z', 40, 'Düşük', 'AL', false, null)], 3000, 'yuksek');
 ok(pl.picks.every((p) => p.qty === null) && Math.abs(pl.cash) < 1e-6, 'fiyatı bilinmeyenlerde adet verilmez, tutar yine bölünür');
+pl = E.planInvest([Object.assign(cand('us1', 50, 'Düşük'), { kind: 'stock', cur: 'USD' }), Object.assign(cand('c1', 45, 'Düşük'), { cur: 'USD' }), cand('t1', 40, 'Düşük', 'AL', false, 10, 'stock')], 3000, 'yuksek');
+ok(pl.picks.map((p) => p.cur).join() === 'USD,USD,TRY', 'her önerinin alındığı para birimi (dolar/euro/TL) korunur');
+pl = E.planInvest([Object.assign(cand('v', 50, 'Düşük', 'AL', false, 12000, 'stock'), { cur: 'USD' }), cand('t2', 45, 'Düşük', 'AL', false, 12000, 'stock'), cand('t3', 40, 'Düşük', 'AL', false, 10, 'stock')], 10000, 'yuksek');
+ok(pl.picks[0].qty > 0 && pl.picks[0].qty < 1 && pl.picks[1].qty === 0, 'ABD hissesi kesirli alınır (0 adet çıkmaz), BIST hissesi tam adet');
 process.exit(fail ? 1 : 0);

@@ -1,1 +1,1 @@
-Portföy → Bildirimler bölümüne "Durumu kontrol et" düğmesi eklendi: bildirim gelmiyorsa nedenini adım adım gösterir. Altın fiyatları da artık ücretsiz bir akıştan (Trunçgil Finans) çekiliyor.
+Yatırım planında yabancı hisseler ve coinler artık dolar (ya da euro) cinsinden yazılıyor, TL karşılığı yanında. Planın altında toplam kaç dolar çevirmen gerektiği gösteriliyor. ABD hisseleri kesirli adetle öneriliyor (0 adet çıkmıyor).

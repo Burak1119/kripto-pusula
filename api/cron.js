@@ -34,11 +34,13 @@ module.exports = async function handler(req, res) {
   if (!store.configured() || !push.configured()) return out({ ok: false, reason: 'depo ya da VAPID anahtarları tanımlı değil' }, 503);
   if (Date.now() - lastRun < 90000) return out({ ok: true, skipped: 'az önce çalıştı' });
   lastRun = Date.now();
+  // Son çalışmayı kaydet: uygulamadaki "Durumu kontrol et" zamanlayıcının gerçekten çalıştığını buradan görür.
+  const mark = (o) => store.setJson('cronlast', { at: lastRun || Date.now(), ...o }, 604800).catch(() => {});
   const host = req.headers && req.headers.host, day = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10), now = Date.now();
   try {
     const ids = await store.smembers('subs');
     const recs = (await store.mgetJson(ids.map((i) => 'sub:' + i))).map((r, i) => (r ? { id: ids[i], r } : null)).filter(Boolean);
-    if (!recs.length) return out({ ok: true, subs: 0 });
+    if (!recs.length) { await mark({ subs: 0, sent: 0 }); return out({ ok: true, subs: 0 }); }
     // Hangi varlıklar lazım?
     const coinAll = new Map(), stockAny = { v: false }, coinCcy = {}; let fxNeed = false;
     const ihour = new Date(Date.now() + 3 * 3600e3).getUTCHours();
@@ -76,6 +78,7 @@ module.exports = async function handler(req, res) {
       }
       await store.setJson('sub:' + id, r);
     }
+    await mark({ subs: recs.length, sent, gone });
     return out({ ok: true, subs: recs.length, sent, gone });
-  } catch (e) { lastRun = 0; return out({ ok: false, error: String(e.message || e) }, 502); }
+  } catch (e) { const at = lastRun; lastRun = 0; await store.setJson('cronlast', { at, error: String(e.message || e).slice(0, 120) }, 604800).catch(() => {}); return out({ ok: false, error: String(e.message || e) }, 502); }
 };

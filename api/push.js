@@ -43,6 +43,12 @@ module.exports = async function handler(req, res) {
       return out({ ok: true, alerts: alerts.map((x) => ({ u: x.u, done: x.done })) });
     }
     if (a === 'off') { await store.del('sub:' + id); await store.srem('subs', id); await store.del('msg:' + id); return out({ ok: true }); }
+    if (a === 'diag') {
+      // Kendi aboneliğinin sunucuda nasıl göründüğü ve zamanlayıcının son çalışması (uygulamadaki "Durumu kontrol et")
+      const rec = await store.getJson('sub:' + id), last = await store.getJson('cronlast');
+      const open = rec ? rec.alerts.filter((x) => !x.done).length : 0;
+      return out({ sub: !!rec, watch: rec ? rec.watch.length : 0, alerts: open, alertsDone: rec ? rec.alerts.length - open : 0, morning: rec && Number.isInteger(rec.morning) ? rec.morning : null, cron: last || null, now: Date.now() });
+    }
     if (a === 'inbox') {
       const msgs = await store.lall('msg:' + id); if (msgs.length) await store.del('msg:' + id);
       return out({ msgs: msgs.slice(-5) });

@@ -96,6 +96,12 @@ const call = (fn, url, method, body) => new Promise((resolve, reject) => {
   ok(r.code === 401, 'cron: yanlış anahtarla çalışmaz');
   r = await call(cron, '/api/cron?key=gizli');
   ok(r.json.ok && r.json.subs === 1 && r.json.sent === 1, 'cron: 1 abone kontrol edildi, 1 bildirim gönderildi ' + JSON.stringify(r.json));
+  // teşhis: zamanlayıcının son çalışması kaydedildi, abonenin kaydı görünüyor
+  r = await call(pushApi, '/api/push?a=diag', 'POST', { endpoint });
+  ok(r.json.sub === true && r.json.cron && r.json.cron.subs === 1 && r.json.cron.sent === 1 && Date.now() - r.json.cron.at < 60000 && Array.isArray([]) && typeof r.json.watch === 'number' && typeof r.json.alerts === 'number', 'teşhis: abone kaydı ve zamanlayıcının son çalışması dönüyor ' + JSON.stringify(r.json));
+  r = await call(pushApi, '/api/push?a=diag', 'POST', { endpoint: base + '/bilinmeyen/abone' });
+  ok(r.json.sub === false && r.json.cron, 'teşhis: kayıtsız abone için sub=false, zamanlayıcı bilgisi yine var');
+  r = await call(pushApi, '/api/push?a=diag', 'GET'); ok(r.code === 405, 'teşhis yalnızca POST');
   ok(pushes.length === 1 && pushes[0].url === '/ok/abcdef' && pushes[0].method === 'POST' && /^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=/.test(pushes[0].headers.authorization) && pushes[0].headers.ttl === '86400', 'push servisine imzalı, içeriksiz istek gitti');
   r = await call(pushApi, '/api/push?a=inbox', 'POST', { endpoint });
   const titles = r.json.msgs.map((m) => m.title);

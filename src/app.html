@@ -234,6 +234,9 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 .scorebar .fill { position: absolute; top: 0; bottom: 0; border-radius: 99px; }
 .scorebar .fill.p { background: var(--up); } .scorebar .fill.n { background: var(--down); }
 .scorebar .mid { position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; background: var(--muted); opacity: .6; }
+.diag { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.diag li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: 15px; line-height: 1.5; }
+.diag li > b:first-child { text-align: center; font-size: 17px; line-height: 1.4; }
 .why { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .why li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; font-size: 15.5px; line-height: 1.5; }
 .why li::before { content: ""; width: 9px; height: 9px; margin: 7px 0 0 4px; border-radius: 2px; background: var(--muted); }
@@ -1802,6 +1805,43 @@ async function pushTest() {
   } catch (e) { S.push.test = 'Gönderilemedi.'; }
   render();
 }
+// "Durumu kontrol et": bildirimin neden gelmediğini adım adım gösterir (izin, Ana Ekran, kayıt, sunucu, zamanlayıcı).
+async function pushDiag() {
+  S.push.diag = { busy: true }; render();
+  const d = { perm: typeof Notification === 'undefined' ? 'yok' : Notification.permission, standalone: isStandalone(), ios: /iPhone|iPad|iPod/.test(navigator.userAgent || ''), pushOk: pushOk(), sub: false, srv: null, err: '', ready: null };
+  try {
+    await pushStatus(); d.ready = S.push.ready;
+    const sub = d.pushOk ? await pushSub(false) : null; d.sub = !!sub;
+    if (sub && d.ready) { const r = await postJson('/api/push?a=diag', { endpoint: sub.endpoint }, 10000); const j = await r.json(); if (r.ok) d.srv = j; else d.err = j.error || ('HTTP ' + r.status); }
+  } catch (e) { d.err = 'Sunucuya ulaşılamadı.'; }
+  S.push.diag = d; render();
+}
+function diagHtml(d) {
+  if (!d) return '';
+  if (d.busy) return '<p class="rnote" style="margin:10px 0 0">Kontrol ediliyor…</p>';
+  let bad = 0;
+  const row = (good, t, f) => { if (!good) bad++; return `<li><b class="${good ? 't-up' : 't-dn'}">${good ? '✓' : '✕'}</b><span>${good ? t : f}</span></li>`; };
+  const L = [];
+  L.push(row(d.perm === 'granted', 'Telefon bildirim iznini vermiş.', d.perm === 'denied' ? 'Bildirim izni kapalı. Telefonun Ayarlar bölümünden bu uygulamaya bildirim izni ver.' : d.perm === 'yok' ? 'Bu tarayıcı bildirim desteklemiyor.' : 'Bildirim izni henüz verilmemiş: "Bildirimleri aç" düğmesine bas ve izin ver.'));
+  if (d.ios) L.push(row(d.standalone, 'Uygulama Ana Ekrandan açık.', 'Uygulama Safari sekmesinde açık. iPhone\'da bildirim yalnızca Ana Ekrana eklenmiş uygulamadan gelir: Paylaş düğmesi, "Ana Ekrana Ekle", sonra oradaki simgeyle aç.'));
+  L.push(row(d.pushOk, 'Arka plan bildirimi destekleniyor.', 'Bu tarayıcı arka plan bildirimini desteklemiyor.'));
+  if (d.ready === false) L.push(row(false, '', 'Sunucu tarafı bildirim için kurulmamış.'));
+  if (d.pushOk) L.push(row(d.sub, 'Bu telefon bildirime kayıtlı.', 'Bu telefonun arka plan kaydı yok. Bildirimleri kapatıp yeniden aç.'));
+  if (d.err) L.push(row(false, '', 'Sunucuyla konuşulamadı: ' + esc(d.err)));
+  const s = d.srv;
+  if (s) {
+    L.push(row(s.sub, 'Sunucu bu telefonu tanıyor.', 'Sunucuda bu telefonun kaydı yok. Bildirimleri kapatıp yeniden aç.'));
+    if (s.sub) {
+      const has = s.watch > 0 || s.alerts > 0 || s.morning !== null;
+      L.push(row(has, `Haber verilecek şeyler: ${s.watch} izlenen varlık, ${s.alerts} bekleyen alarm${s.morning !== null ? ', sabah özeti ' + String(s.morning).padStart(2, '0') + ':00' : ''}.`, 'Haber verilecek bir şey yok: Portföye varlık ekle, bir varlığa fiyat alarmı kur ya da sabah özetini aç.'));
+    }
+    const c = s.cron, min = c && c.at ? Math.max(0, Math.round((s.now - c.at) / 60000)) : null, t = (m) => (m < 60 ? m + ' dakika' : m < 1440 ? Math.round(m / 60) + ' saat' : Math.round(m / 1440) + ' gün');
+    if (min === null) L.push(row(false, '', '<b>Zamanlayıcı hiç çalışmamış.</b> Uygulama kapalıyken bildirim gelmesi için cron-job.org kaydının kurulması gerekir (KURULUM.md, 3. adım).'));
+    else if (c.error) L.push(row(false, '', `Zamanlayıcı ${t(min)} önce çalıştı ama hata verdi: ${esc(c.error)}`));
+    else L.push(row(min <= 30, `Zamanlayıcı çalışıyor (son çalışma ${t(min)} önce).`, `<b>Zamanlayıcı durmuş görünüyor</b>, son çalışma ${t(min)} önce. cron-job.org kaydını kontrol et.`));
+  }
+  return `<ul class="diag">${L.join('')}</ul><p class="rnote" style="margin:10px 0 0">${bad ? 'Yukarıdaki ✕ işaretlilerden ilkini düzelt, sonra yeniden kontrol et.' : 'Her şey yolunda görünüyor. "Deneme bildirimi gönder" ile telefona ulaştığını da dene.'}</p>`;
+}
 /* Haber başlığı çevirisi (görüntüde; puanlama orijinal başlıkla yapılır) */
 const TR_SKIP = new Set(['Cointelegraph TR', 'Bloomberg HT', 'AA Ekonomi']);
 const ttl = (n) => (S.tr && S.trc[n.title]) || n.title;
@@ -1834,6 +1874,7 @@ function notifPanel() {
   return `<section class="panel" style="margin-top:14px"><h2>Bildirimler</h2><p class="sub" style="margin:0 0 8px">${msg}</p>
     ${S.push.err ? `<p class="rnote warn" style="margin:0 0 8px">${esc(S.push.err)}</p>` : ''}
     ${sup && perm !== 'denied' ? `<div class="acts"><button class="btn ${on ? '' : 'primary'}" id="pnotif">${on ? 'Bildirimleri kapat' : 'Bildirimleri aç'}</button>${extra}</div>` : ''}
+    <div class="acts" style="margin-top:8px"><button class="btn" id="pdiag">Durumu kontrol et</button></div>${diagHtml(S.push.diag)}
     <p class="rnote" style="margin:10px 0 0">Arka plan bildiriminde sunucuya yalnızca izlediğin varlıkların adı ve fiyat alarmların gönderilir; <b>miktarların ve maliyetlerin hiçbir zaman gönderilmez</b>. iPhone'da bildirim için uygulamayı Ana Ekrana eklemen gerekir.</p></section>`;
 }
 function weekHtml(rows, groups, grand, kind) {
@@ -2493,6 +2534,7 @@ document.addEventListener('click', (e) => {
   else if (t.id === 'tipinst') { const ev = S.installEv; S.installEv = null; if (ev) { try { ev.prompt(); } catch (e) {} } renderTip(); }
   else if (t.id === 'trtog') { S.tr = !S.tr; store.set('tr', S.tr); render(); }
   else if (t.id === 'pushtest') pushTest();
+  else if (t.id === 'pdiag') pushDiag();
   else if (t.id === 'aladd') {
     const c = byId(S.sel), v = parseNumTr($('#alp').value);
     if (!c || !(v > 0)) { $('#alerr').textContent = 'Hedef fiyatı sayı olarak yaz (ör. 4.200.000).'; return; }

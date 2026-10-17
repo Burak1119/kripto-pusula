@@ -160,6 +160,42 @@ const call = (fn, url, method, body) => new Promise((resolve, reject) => {
   r = await call(pushApi, '/api/push?a=inbox', 'POST', { endpoint: ep2 });
   ok(!r.json.msgs.some((m) => /Günaydın/.test(m.title)), 'aynı gün ikinci kez sabah özeti gitmedi');
   await call(pushApi, '/api/push?a=off', 'POST', { endpoint: ep2 });
+  // ---- düzenli alım hatırlatıcısı, ekonomi takvimi, haftalık rapor ----
+  const ep3 = base + '/ok/rep1', sub3 = { endpoint: ep3, keys: { p256dh: 'p', auth: 'a' } }, id3 = P.idOf(ep3);
+  r = await call(pushApi, '/api/push?a=sync', 'POST', { sub: sub3, watch: [watch[0], watch[1]], alerts: [], weekly: true, cal: true, dca: [{ u: 'd1', k: 'c', id: 'bitcoin', name: 'Bitcoin', d: 21, amt: 5000 }, { u: 'bad', k: 'c', id: 'x', name: 'x', d: 31 }] });
+  const rec3 = JSON.parse(db.get('kp:sub:' + id3));
+  ok(rec3.weekly === true && rec3.cal === true && rec3.dca.length === 1 && !JSON.stringify(rec3.dca).includes('5000'), 'sync: rapor/takvim ayarı ve hatırlatıcı kaydedildi, tutar sunucuya yazılmadı, geçersiz gün elendi');
+  r = await call(pushApi, '/api/push?a=diag', 'POST', { endpoint: ep3 });
+  ok(r.json.weekly === true && r.json.cal === true && r.json.dca === 1, 'teşhis: rapor, takvim ve hatırlatıcı görünüyor');
+  const runAt = async (ms) => { Date.now = () => ms; delete require.cache[cronMod]; const c = require('../api/cron'); await call(c, '/api/cron?key=gizli'); Date.now = realNow; const x = await call(pushApi, '/api/push?a=inbox', 'POST', { endpoint: ep3 }); return x.json.msgs; };
+  let m3 = await runAt(Date.UTC(2026, 9, 21, 7, 0)); // Çarşamba 10:00
+  ok(m3.some((m) => m.title === 'Düzenli alım günü: Bitcoin' && m.k === 'c' && m.id === 'bitcoin'), 'ayın 21\'inde sabah düzenli alım hatırlatıcısı geldi');
+  ok(!m3.some((m) => /^Yarın/.test(m.title)) && !m3.some((m) => m.title === 'Haftalık rapor'), 'sabah takvim ya da haftalık rapor gelmedi');
+  m3 = await runAt(Date.UTC(2026, 9, 21, 7, 30));
+  ok(!m3.some((m) => /Düzenli alım/.test(m.title)), 'aynı gün hatırlatıcı tekrar gelmedi');
+  m3 = await runAt(Date.UTC(2026, 9, 21, 17, 30)); // 20:30
+  ok(m3.some((m) => m.title === 'Yarın: TCMB faiz kararı' && /14:00/.test(m.body) && m.k === 'r' && m.id === 'cal'), 'bir gün önce akşam takvim bildirimi geldi');
+  m3 = await runAt(Date.UTC(2026, 9, 25, 17, 30)); // Pazar 20:30
+  const wk3 = m3.find((m) => m.title === 'Haftalık rapor');
+  ok(wk3 && /Bitcoin/.test(wk3.body) && /Fed/.test(wk3.body) && wk3.k === 'r' && wk3.id === 'week', 'pazar akşamı haftalık rapor geldi: ' + (wk3 && wk3.body));
+  m3 = await runAt(Date.UTC(2026, 9, 25, 18, 0));
+  ok(!m3.some((m) => m.title === 'Haftalık rapor'), 'haftalık rapor aynı gün tekrar gelmedi');
+  await call(pushApi, '/api/push?a=off', 'POST', { endpoint: ep3 });
+  // ---- cihazlar arası eşitleme (şifreli kayıt) ----
+  const syncApi = require('../api/sync'), sid = 'a'.repeat(64);
+  r = await call(syncApi, '/api/sync?a=get', 'POST', { id: sid });
+  ok(r.json.none === true, 'eşitleme: kayıt yoksa none');
+  r = await call(syncApi, '/api/sync?a=put', 'POST', { id: sid, at: 1000, blob: 'QUJD_-x' });
+  ok(r.json.ok && JSON.parse(db.get('kp:sync:' + sid)).blob === 'QUJD_-x', 'eşitleme: şifreli kayıt saklandı');
+  r = await call(syncApi, '/api/sync?a=put', 'POST', { id: sid, at: 500, blob: 'ESKI' });
+  ok(r.json.newer === true && r.json.at === 1000 && JSON.parse(db.get('kp:sync:' + sid)).blob === 'QUJD_-x', 'eşitleme: daha eski kayıt yenisinin üstüne yazılmaz');
+  r = await call(syncApi, '/api/sync?a=get', 'POST', { id: sid });
+  ok(r.json.at === 1000 && r.json.blob === 'QUJD_-x', 'eşitleme: kayıt geri okunur');
+  r = await call(syncApi, '/api/sync?a=put', 'POST', { id: 'kisa', at: 1, blob: 'x' });
+  ok(r.code === 400, 'eşitleme: geçersiz kimlik reddedilir');
+  r = await call(syncApi, '/api/sync?a=put', 'POST', { id: sid, at: 2000, blob: '<script>' });
+  ok(r.code === 400, 'eşitleme: bozuk kayıt reddedilir');
+  r = await call(syncApi, '/api/sync?a=get', 'GET'); ok(r.code === 405, 'eşitleme yalnızca POST');
   // geçersiz (silinmiş) abonelik temizlenir
   const gone = base + '/gone/zzz';
   await call(pushApi, '/api/push?a=sync', 'POST', { sub: { endpoint: gone }, watch: [{ k: 'c', id: 'bitcoin', sym: 'btc', name: 'Bitcoin' }], alerts: [{ u: 'g1', k: 'c', id: 'bitcoin', sym: 'btc', name: 'Bitcoin', dir: 'up', price: 1, ccy: 'TRY' }] });

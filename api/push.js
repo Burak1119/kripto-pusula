@@ -9,6 +9,8 @@ const cleanAlerts = (l) => (Array.isArray(l) ? l : []).slice(0, 40).map((a) => (
   u: str(a && a.u, 30), k: a && a.k === 's' ? 's' : a && a.k === 'f' ? 'f' : 'c', id: str(a && a.id, 80), sym: str(a && a.sym, 15), name: str(a && a.name, 60), n: str(a && a.n, 60),
   dir: a && a.dir === 'dn' ? 'dn' : 'up', price: Number(a && a.price), ccy: ['TRY', 'USD', 'EUR'].includes(a && a.ccy) ? a.ccy : 'TRY', done: a && Number(a.done) > 0 ? Number(a.done) : null,
 })).filter((a) => a.u && a.id && Number.isFinite(a.price) && a.price > 0);
+// Düzenli alım hatırlatıcısı: yalnızca varlığın adı ve ayın günü (tutar gönderilmez)
+const cleanDca = (l) => (Array.isArray(l) ? l : []).slice(0, 10).map((x) => ({ u: str(x && x.u, 30), k: x && x.k === 's' ? 's' : x && x.k === 'f' ? 'f' : 'c', id: str(x && x.id, 80), name: str(x && x.name, 60), d: Number(x && x.d) })).filter((x) => x.u && x.id && Number.isInteger(x.d) && x.d >= 1 && x.d <= 28);
 async function body(req) {
   if (req.body && typeof req.body === 'object') return req.body;
   if (typeof req.body === 'string') { try { return JSON.parse(req.body); } catch (e) { return {}; } }
@@ -37,7 +39,7 @@ module.exports = async function handler(req, res) {
       const alerts = cleanAlerts(b.alerts), prev = new Map(((old && old.alerts) || []).map((x) => [x.u, x]));
       // Sunucuda tetiklenmiş alarm, kullanıcı fiyatını değiştirmediyse tetiklenmiş kalır
       for (const x of alerts) { const p = prev.get(x.u); if (p && p.done && p.price === x.price && p.dir === x.dir) x.done = p.done; }
-      const rec = { endpoint, keys: keys && typeof keys === 'object' ? { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 100) } : null, watch: cleanWatch(b.watch), alerts, morning: Number.isInteger(b.morning) && b.morning >= 5 && b.morning <= 12 ? b.morning : null,
+      const rec = { endpoint, keys: keys && typeof keys === 'object' ? { p256dh: str(keys.p256dh, 200), auth: str(keys.auth, 100) } : null, watch: cleanWatch(b.watch), alerts, morning: Number.isInteger(b.morning) && b.morning >= 5 && b.morning <= 12 ? b.morning : null, weekly: b.weekly === true, cal: b.cal === true, dca: cleanDca(b.dca),
         sigs: (old && old.sigs) || {}, done: (old && old.done) || {}, at: (old && old.at) || Date.now() };
       await store.setJson('sub:' + id, rec); await store.sadd('subs', id);
       return out({ ok: true, alerts: alerts.map((x) => ({ u: x.u, done: x.done })) });
@@ -47,7 +49,7 @@ module.exports = async function handler(req, res) {
       // Kendi aboneliğinin sunucuda nasıl göründüğü ve zamanlayıcının son çalışması (uygulamadaki "Durumu kontrol et")
       const rec = await store.getJson('sub:' + id), last = await store.getJson('cronlast');
       const open = rec ? rec.alerts.filter((x) => !x.done).length : 0;
-      return out({ sub: !!rec, watch: rec ? rec.watch.length : 0, alerts: open, alertsDone: rec ? rec.alerts.length - open : 0, morning: rec && Number.isInteger(rec.morning) ? rec.morning : null, cron: last || null, now: Date.now() });
+      return out({ sub: !!rec, watch: rec ? rec.watch.length : 0, alerts: open, alertsDone: rec ? rec.alerts.length - open : 0, morning: rec && Number.isInteger(rec.morning) ? rec.morning : null, weekly: !!(rec && rec.weekly), cal: !!(rec && rec.cal), dca: rec && Array.isArray(rec.dca) ? rec.dca.length : 0, cron: last || null, now: Date.now() });
     }
     if (a === 'inbox') {
       const msgs = await store.lall('msg:' + id); if (msgs.length) await store.del('msg:' + id);

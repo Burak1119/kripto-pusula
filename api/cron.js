@@ -45,6 +45,10 @@ module.exports = async function handler(req, res) {
     const coinAll = new Map(), stockAny = { v: false }, coinCcy = {}; let fxNeed = false;
     const ihour = new Date(Date.now() + 3 * 3600e3).getUTCHours();
     const due = (r) => Number.isInteger(r.morning) && ihour >= r.morning && ihour < r.morning + 3 && !(r.done && r.done.morning === day);
+    const itr = new Date(Date.now() + 3 * 3600e3), wday = itr.getUTCDay(), dom = itr.getUTCDate();
+    const weeklyDue = (r) => r.weekly && wday === 0 && ihour >= 19 && ihour < 23 && !(r.done && r.done.weekly === day);
+    const calDue = (r) => r.cal && ihour >= 20 && ihour < 23 && !(r.done && r.done.cal === day);
+    const dcaDue = (r) => (Array.isArray(r.dca) ? r.dca : []).filter((x) => x.d === dom && ihour >= 9 && ihour < 14 && !(r.done && r.done['dca:' + x.u] === day));
     for (const { r } of recs) {
       if (due(r)) fxNeed = true;
       for (const w of r.watch) { if (w.k === 'c') coinAll.set(w.id, w); else stockAny.v = true; }
@@ -65,10 +69,14 @@ module.exports = async function handler(req, res) {
     for (const { id, r } of recs) {
       const w = E.watchMessages(r.watch, (x) => (x.k === 'c' ? coinsTry[x.id] : stocks[x.id]), r.sigs, r.done, day);
       const am = E.alertsRun(r.alerts, (a) => { if (a.k === 'f') return fxPrice[a.id] ?? null; const it = a.k === 'c' ? (priceBy[a.ccy] || {})[a.id] : stocks[a.id]; return it ? it.price : null; }, now);
-      const isDue = due(r); r.sigs = { ...r.sigs, ...w.sigs }; r.done = w.done;
+      const isDue = due(r), wkDue = weeklyDue(r), clDue = calDue(r), dcList = dcaDue(r); r.sigs = { ...r.sigs, ...w.sigs }; r.done = w.done;
       const mm = isDue ? E.morningMessage(r.watch, (x) => (x.k === 'c' ? coinsTry[x.id] : stocks[x.id]), fxt) : null;
       if (isDue && mm) r.done.morning = day;
-      const msgs = [...(mm ? [mm] : []), ...am, ...w.msgs].slice(0, 6);
+      const extra = [];
+      if (wkDue) { r.done.weekly = day; const wm = E.weeklyMessage(r.watch, (x) => (x.k === 'c' ? coinsTry[x.id] : stocks[x.id]), day); if (wm) extra.push(wm); }
+      if (clDue) { r.done.cal = day; const cm = E.ecoTomorrowMessage(day); if (cm) extra.push(cm); }
+      for (const x of dcList) { r.done['dca:' + x.u] = day; extra.push({ k: x.k, id: x.id, tag: 'dca-' + x.u, title: 'Düzenli alım günü: ' + x.name, body: 'Bugün aylık alım günün. Güncel fiyat ve sinyal için dokun.' }); }
+      const msgs = [...(mm ? [mm] : []), ...extra, ...am, ...w.msgs].slice(0, 6);
       if (msgs.length) {
         for (const m of msgs) await store.rpush('msg:' + id, m);
         await store.ltrim('msg:' + id, -20, -1); await store.expire('msg:' + id, 259200);

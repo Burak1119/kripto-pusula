@@ -234,6 +234,30 @@ svg.spark { display: block; width: 100%; height: 100%; overflow: visible; }
 .scorebar .fill { position: absolute; top: 0; bottom: 0; border-radius: 99px; }
 .scorebar .fill.p { background: var(--up); } .scorebar .fill.n { background: var(--down); }
 .scorebar .mid { position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; background: var(--muted); opacity: .6; }
+/* Araçlar */
+.tkit { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tcard { display: grid; gap: 4px; align-content: start; text-align: left; min-height: 84px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface2); color: var(--ink); font: inherit; }
+.tcard b { font-size: 16px; }
+.tcard span { font-size: 13.5px; color: var(--muted); line-height: 1.35; }
+.tcard:hover { border-color: var(--accent); }
+.tpick { display: grid; gap: 4px; }
+.tsel { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; padding: 0 0 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface2); }
+.tsel b { font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tsel .btn { min-height: 44px; border: 0; background: transparent; color: var(--accent); }
+.tres { flex-wrap: wrap; margin: 6px 0 0; }
+.tbig { font-size: clamp(20px, 5vw, 26px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; margin: 2px 0 6px; }
+.tchart { height: 150px; margin: 12px 0 6px; }
+.tlines { width: 100%; height: 100%; display: block; overflow: visible; }
+.bt.b3 .bt-h, .bt.b3 .bt-r { grid-template-columns: 1.3fr 1fr 1fr; }
+.ecol { display: grid; gap: 12px; }
+.ecor { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; font-size: 15px; line-height: 1.45; }
+.ecol.tm .ecor { grid-template-columns: 54px minmax(0, 1fr); }
+.ecot { color: var(--muted); font-size: 14px; font-weight: 600; }
+.ecor .sig { font-size: 11.5px; padding: 1px 7px; vertical-align: 1px; }
+.trow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); line-height: 1.4; }
+.trow:first-of-type { border-top: 0; }
+.trow .btn { flex: none; min-width: 76px; }
+.scode { font-size: clamp(15px, 4.4vw, 20px); white-space: nowrap; overflow-x: auto; font-weight: 700; letter-spacing: .02em; color: var(--ink); padding: 10px 14px; margin: 4px 0 10px; border-radius: 12px; background: var(--surface2); user-select: all; }
 .diag { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
 .diag li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: 15px; line-height: 1.5; }
 .diag li > b:first-child { text-align: center; font-size: 17px; line-height: 1.4; }
@@ -1207,6 +1231,114 @@ function planInvest(cands, amount, risk) {
   });
   return { wait: false, picks, cash: amount - spent, amount, pool: pool.length, cashPct, n };
 }
+// ---- Araçlar: geçmiş fiyat serileri (zaman sıralı t[], v[]) üzerinde hesaplar ----
+// En yakın noktanın değeri (iki yönde). maxGap ms'den uzaksa null.
+function valNear(t, v, ts, maxGap) {
+  if (!t || !t.length) return null;
+  let lo = 0, hi = t.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (t[m] < ts) lo = m + 1; else hi = m; }
+  let best = lo; if (lo > 0 && Math.abs(t[lo - 1] - ts) <= Math.abs(t[lo] - ts)) best = lo - 1;
+  return maxGap && Math.abs(t[best] - ts) > maxGap ? null : v[best];
+}
+// İki seriyi zaman üzerinden çarpar (ör. coinin dolar fiyatı × dolar kuru = TL fiyatı). Eşi bulunamayan nokta atlanır.
+function mulSeries(a, b, k, maxGap) {
+  const t = [], v = [];
+  for (let i = 0; i < a.t.length; i++) { const f = valNear(b.t, b.v, a.t[i], maxGap || 10 * 86400e3); if (f !== null && f > 0) { t.push(a.t[i]); v.push(a.v[i] * f * (k || 1)); } }
+  return { t, v };
+}
+// "Keşke alsaydım": fromTs tarihinde amount kadar alınsaydı bugün ne olurdu.
+function whatIf(t, v, fromTs, amount) {
+  if (!t || t.length < 2 || !(amount > 0)) return null;
+  let i = t.findIndex((x) => x >= fromTs); if (i < 0) return null;
+  const short = t[0] > fromTs + 5 * 86400e3;
+  if (i >= t.length - 1) i = t.length - 2;
+  const buy = v[i], now = v[v.length - 1]; if (!(buy > 0) || !(now > 0)) return null;
+  const units = amount / buy, value = units * now;
+  let mi = i, ma = i; for (let j = i; j < v.length; j++) { if (v[j] < v[mi]) mi = j; if (v[j] > v[ma]) ma = j; }
+  return { date: t[i], buy, now, units, value, gain: value - amount, pct: (value / amount - 1) * 100, short, first: t[0], low: units * v[mi], lowDate: t[mi], high: units * v[ma], highDate: t[ma] };
+}
+// Düzenli alım: her ay "day" gününde (o gün veri yoksa sonraki ilk veri) monthly kadar alınır.
+function dcaSim(t, v, monthly, months, day, nowTs) {
+  if (!t || t.length < 2 || !(monthly > 0) || !(months > 0)) return null;
+  const end = new Date(nowTs || t[t.length - 1]), buys = [];
+  for (let m = months; m >= 0; m--) { // bu ayın alım günü henüz gelmediyse bir önceki aydan başlanır
+    const y = end.getUTCFullYear(), mo = end.getUTCMonth() - m, last = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+    const ts = Date.UTC(y, mo, Math.min(day || 1, last), 12);
+    if (ts > t[t.length - 1]) continue;
+    const i = t.findIndex((x) => x >= ts - 12 * 3600e3); if (i < 0 || t[i] - ts > 20 * 86400e3) continue;
+    if (buys.length && buys[buys.length - 1].i === i) continue;
+    buys.push({ i, t: t[i], p: v[i], q: monthly / v[i] });
+  }
+  if (buys.length > months) buys.splice(0, buys.length - months);
+  if (!buys.length) return null;
+  const units = buys.reduce((s, b) => s + b.q, 0), invested = monthly * buys.length, now = v[v.length - 1], value = units * now;
+  const lump = (invested / buys[0].p) * now;
+  const path = []; let k = 0, q = 0;
+  for (let j = buys[0].i; j < t.length; j++) { while (k < buys.length && buys[k].i <= j) { q += buys[k].q; k++; } path.push([t[j], monthly * k, q * v[j]]); }
+  return { n: buys.length, invested, units, value, gain: value - invested, pct: (value / invested - 1) * 100, avg: invested / units, now, lump, lumpPct: (lump / invested - 1) * 100, first: buys[0].t, short: buys.length < months, path };
+}
+// Karşılaştırma için özet: dönem getirileri, oynaklık (yıllık), en büyük düşüş.
+function seriesStats(t, v) {
+  if (!t || t.length < 3) return null;
+  const last = v[v.length - 1], end = t[t.length - 1];
+  const back = (d) => { const ts = end - d * 86400e3; if (t[0] > ts + 4 * 86400e3) return null; const p = valNear(t, v, ts); return p > 0 ? (last / p - 1) * 100 : null; };
+  const r = []; for (let i = 1; i < v.length; i++) if (v[i - 1] > 0 && v[i] > 0) r.push(Math.log(v[i] / v[i - 1]));
+  const mean = r.reduce((s, x) => s + x, 0) / (r.length || 1), sd = Math.sqrt(r.reduce((s, x) => s + (x - mean) ** 2, 0) / Math.max(1, r.length - 1));
+  const gaps = []; for (let i = 1; i < t.length; i++) gaps.push(t[i] - t[i - 1]); gaps.sort((a, b) => a - b);
+  const step = gaps[gaps.length >> 1] || 86400e3, ppy = (365 * 86400e3) / step;
+  let peak = v[0], dd = 0; for (const x of v) { if (x > peak) peak = x; if (peak > 0) dd = Math.min(dd, (x / peak - 1) * 100); }
+  return { c30: back(30), c90: back(90), c365: back(365), all: v[0] > 0 ? (last / v[0] - 1) * 100 : null, vol: sd * Math.sqrt(ppy) * 100, dd, from: t[0] };
+}
+
+// ---- Ekonomi takvimi (Türkiye saati). Kaynak: TCMB, Fed, ECB ve ABD Çalışma Bakanlığı (BLS) takvimleri. TÜİK: ayın 3'ü, hafta sonuna denk gelirse pazartesi. ----
+const ECO_INFO = {
+  tcmb: ['TCMB faiz kararı', 'Türkiye\'nin politika faizi açıklanır. TL, Borsa İstanbul ve altın doğrudan etkilenir.', 3],
+  tuik: ['Türkiye enflasyonu (TÜİK)', 'Geçen ayın enflasyonu açıklanır. Beklentiden yüksek gelirse faiz ve TL üzerinde baskı oluşur.', 3],
+  fed: ['ABD Fed faiz kararı', 'ABD\'nin faiz kararı. Doların, ABD hisselerinin ve kriptonun yönünü en çok etkileyen gün.', 3],
+  cpi: ['ABD enflasyonu', 'ABD\'nin aylık enflasyon verisi. Fed\'in sonraki adımına dair beklentiyi değiştirir; kripto sert oynayabilir.', 3],
+  nfp: ['ABD istihdam verisi', 'ABD\'de tarım dışı istihdam. Ekonominin gücünü gösterir; dolar ve hisseler oynayabilir.', 2],
+  ecb: ['Avrupa Merkez Bankası faiz kararı', 'Euro bölgesinin faiz kararı. Euro kurunu ve Avrupa hisselerini etkiler.', 2],
+  tcmbr: ['TCMB Enflasyon Raporu', 'Merkez Bankası enflasyon tahminlerini günceller. TL ve faiz beklentileri değişebilir.', 2],
+};
+const ECO_RAW = 'tcmb 2026-10-22 14:00,fed 2026-10-28 21:00,ecb 2026-10-29 16:15,nfp 2026-11-06 16:30,cpi 2026-11-10 16:30,tcmbr 2026-11-12 10:30,nfp 2026-12-04 16:30,fed 2026-12-09 22:00,cpi 2026-12-10 16:30,tcmb 2026-12-10 14:00,ecb 2026-12-17 16:15,'
+  + 'nfp 2027-01-08 16:30,cpi 2027-01-13 16:30,tcmb 2027-01-21 14:00,fed 2027-01-27 22:00,ecb 2027-02-04 16:15,nfp 2027-02-05 16:30,cpi 2027-02-11 16:30,tcmbr 2027-02-11 10:30,nfp 2027-03-05 16:30,cpi 2027-03-10 16:30,fed 2027-03-17 21:00,tcmb 2027-03-18 14:00,ecb 2027-03-18 16:15,'
+  + 'nfp 2027-04-02 15:30,cpi 2027-04-13 15:30,tcmb 2027-04-22 14:00,fed 2027-04-28 21:00,ecb 2027-04-29 15:15,nfp 2027-05-07 15:30,cpi 2027-05-12 15:30,tcmbr 2027-05-13 10:30,nfp 2027-06-04 15:30,fed 2027-06-09 21:00,cpi 2027-06-10 15:30,tcmb 2027-06-10 14:00,ecb 2027-06-10 15:15,'
+  + 'nfp 2027-07-02 15:30,cpi 2027-07-14 15:30,ecb 2027-07-22 15:15,fed 2027-07-28 21:00,nfp 2027-08-06 15:30,cpi 2027-08-11 15:30,nfp 2027-09-03 15:30,ecb 2027-09-09 15:15,cpi 2027-09-14 15:30,fed 2027-09-15 21:00,nfp 2027-10-08 15:30,cpi 2027-10-14 15:30,fed 2027-10-27 21:00,ecb 2027-10-28 15:15,'
+  + 'nfp 2027-11-05 15:30,cpi 2027-11-10 16:30,nfp 2027-12-03 16:30,fed 2027-12-08 22:00,cpi 2027-12-10 16:30,ecb 2027-12-16 16:15';
+const ECO_END = '2027-12-31';
+function ecoList() {
+  const l = ECO_RAW.split(',').map((s) => { const [c, d, h] = s.trim().split(' '); return { c, d, h }; });
+  for (let y = 2026, m = 11; y < 2028; m === 12 ? (y++, m = 1) : m++) {
+    const dt = new Date(Date.UTC(y, m - 1, 3)), wd = dt.getUTCDay(); if (wd === 6) dt.setUTCDate(5); else if (wd === 0) dt.setUTCDate(4);
+    l.push({ c: 'tuik', d: dt.toISOString().slice(0, 10), h: '10:00', approx: true });
+  }
+  return l.map((e) => { const [y, mo, d] = e.d.split('-').map(Number), [hh, mm] = e.h.split(':').map(Number), inf = ECO_INFO[e.c];
+    return { ...e, name: inf[0], desc: inf[1], imp: inf[2], ts: Date.UTC(y, mo - 1, d, hh - 3, mm) }; }).sort((a, b) => a.ts - b.ts);
+}
+// fromDay (YYYY-MM-DD, Türkiye) dahil, days gün içindeki olaylar.
+function ecoBetween(fromDay, days) { const s = Date.parse(fromDay + 'T00:00:00+03:00'), e = s + days * 86400e3; return ecoList().filter((x) => x.ts >= s && x.ts < e); }
+const ECO_GUN = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+function ecoTomorrowMessage(day) {
+  const next = new Date(Date.parse(day + 'T12:00:00+03:00') + 86400e3).toISOString().slice(0, 10), l = ecoBetween(next, 1);
+  if (!l.length) return null;
+  return { k: 'r', id: 'cal', tag: 'cal-' + next, title: 'Yarın: ' + l.map((x) => x.name).join(', '), body: l.map((x) => `${x.h} ${x.name}`).join(' · ') + '. Fiyatlar bu saatlerde sert oynayabilir.' };
+}
+// Pazar akşamı haftalık rapor: izlenen varlıkların 7 günlük değişimi (miktar ve maliyet kullanılmaz) ve gelecek haftanın takvimi.
+function weeklyMessage(watch, itemOf, day) {
+  const its = watch.map((w) => ({ w, it: itemOf(w) })).filter((x) => x.it && num(x.it.c7) !== null);
+  const parts = [];
+  if (its.length) {
+    its.sort((p, q) => q.it.c7 - p.it.c7);
+    const avg = its.reduce((s, x) => s + x.it.c7, 0) / its.length;
+    parts.push(its.length === 1 ? `${its[0].w.name} bu hafta ${fmtP(its[0].it.c7)}.` : `İzlediğin ${its.length} varlık bu hafta ortalama ${fmtP(avg)}. En iyi ${its[0].w.name} ${fmtP(its[0].it.c7)}, en kötü ${its[its.length - 1].w.name} ${fmtP(its[its.length - 1].it.c7)}.`);
+    const weak = its.filter((x) => x.it.a && (x.it.a.signal === 'SAT' || x.it.a.signal === 'AZALT')).map((x) => x.w.name);
+    if (weak.length) parts.push(`Azalt/Sat sinyali: ${weak.slice(0, 3).join(', ')}.`);
+  }
+  const nx = ecoBetween(new Date(Date.parse(day + 'T12:00:00+03:00') + 86400e3).toISOString().slice(0, 10), 7).filter((x) => x.imp >= 3);
+  if (nx.length) parts.push('Gelecek hafta: ' + nx.slice(0, 3).map((x) => `${x.name} (${ECO_GUN[new Date(x.ts + 3 * 3600e3).getUTCDay()]})`).join(', ') + '.');
+  if (!parts.length) return null;
+  return { k: 'r', id: 'week', tag: 'weekly-' + day, title: 'Haftalık rapor', body: parts.join(' ') + ' Ayrıntı için dokun.' };
+}
 // ENGINE END
 
 /* ---------- Arayüz ---------- */
@@ -1232,6 +1364,8 @@ const S = {
   notifOn: store.get('notif', false), installEv: null, tipHide: store.get('tip', false),
   alerts: store.get('alerts', []), push: { ready: null, key: null, on: false, err: '', test: '', inited: false },
   tr: store.get('tr', true), trc: {}, trq: new Set(), trbusy: false,
+  t: { tool: null, a: null, b: null, amt: '10000', when: 365, date: '', mon: '2000', months: 12, day: 1, per: '1y', out: '', ...store.get('tools', {}) }, tc: {}, tsheet: false, wkOpen: false,
+  rep: store.get('rep', { weekly: false, cal: false }), dca: store.get('dca', []), sync: store.get('sync', null), portAt: store.get('portAt', 0), syncMsg: '', syncIn: '',
 };
 const CUR_LOCALE = { usd: 'USD', try: 'TRY', eur: 'EUR' };
 function money(v, cur) {
@@ -1443,7 +1577,7 @@ function viewPano() {
       <div class="rows">${worst.length ? worst.map(row).join('') : '<div class="empty">Belirgin bir uyarı yok.</div>'}</div></section>`;
   const riskyP = risky.length ? `<section class="panel span2"><h2>Riskli ama hareketli</h2><div class="sub" style="margin-bottom:6px">İlk 100'ün dışındaki küçük coinler. Puanı iyi görünür ama fiyatı kolay sertçe düşer, alıp satarken fiyat kayabilir. Yalnızca kaybetmeyi göze alabileceğin küçük tutarla düşün.</div>
       <div class="rows">${risky.map(row).join('')}</div></section>` : '';
-  return `${stockNotes()}<div class="grid2">${planCard(w)}${briefHtml(w)}${mood}${middle}${riskyP}${noPoints ? '' : btHtml(w)}
+  return `${stockNotes()}<div class="grid2">${planCard(w)}${toolsCard()}${briefHtml(w)}${ecoCard()}${mood}${middle}${riskyP}${noPoints ? '' : btHtml(w)}
   <section class="panel span2"><h2>Son haberler</h2>${newsList(w.news.slice(0, 6))}</section></div>`;
 }
 function newsList(list) {
@@ -1666,7 +1800,7 @@ const sgn = (v, cur) => (v >= 0 ? '+' : '−') + money(Math.abs(v), cur);
 const tcls = (v) => (v >= 0 ? 't-up' : 't-dn');
 const fmtQty = (q) => new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 8 }).format(q);
 const portCode = () => 'kp1.' + portEncode(S.port);
-const savePort = () => store.set('port', S.port);
+const savePort = () => { store.set('port', S.port); S.portAt = Date.now(); store.set('portAt', S.portAt); dsPutSoon(); };
 function holdItem(h) { return h.kind === 'coin' ? S.pcoins[h.id] || null : h.kind === 'fx' ? (S.pfx && S.pfx[h.id]) || null : S.sitems.find((x) => x.id === h.id) || null; }
 async function loadPortCoins() {
   S.pat = Date.now();
@@ -1774,7 +1908,7 @@ async function syncPush() {
   try {
     const sub = await pushSub(false); if (!sub) { S.push.on = false; return; }
     const watch = S.port.filter((h) => h.qty > 0 && h.kind !== 'fx').map((h) => ({ k: h.kind === 'coin' ? 'c' : 's', id: h.id, sym: h.sym, name: h.name }));
-    const r = await postJson('/api/push?a=sync', { sub: sub.toJSON(), watch, alerts: S.alerts, morning: S.morning.on ? S.morning.h : null });
+    const r = await postJson('/api/push?a=sync', { sub: sub.toJSON(), watch, alerts: S.alerts, morning: S.morning.on ? S.morning.h : null, weekly: !!S.rep.weekly, cal: !!S.rep.cal, dca: S.dca.map((x) => ({ u: x.u, k: x.k, id: x.id, name: x.name, d: x.d })) });
     const j = await r.json(); if (!r.ok || !j.ok) throw new Error(j.error || r.status);
     let ch = false;
     for (const x of j.alerts || []) { const a = S.alerts.find((y) => y.u === x.u); if (a && x.done && !a.done) { a.done = x.done; ch = true; } }
@@ -1833,8 +1967,8 @@ function diagHtml(d) {
   if (s) {
     L.push(row(s.sub, 'Sunucu bu telefonu tanıyor.', 'Sunucuda bu telefonun kaydı yok. Bildirimleri kapatıp yeniden aç.'));
     if (s.sub) {
-      const has = s.watch > 0 || s.alerts > 0 || s.morning !== null;
-      L.push(row(has, `Haber verilecek şeyler: ${s.watch} izlenen varlık, ${s.alerts} bekleyen alarm${s.morning !== null ? ', sabah özeti ' + String(s.morning).padStart(2, '0') + ':00' : ''}.`, 'Haber verilecek bir şey yok: Portföye varlık ekle, bir varlığa fiyat alarmı kur ya da sabah özetini aç.'));
+      const has = s.watch > 0 || s.alerts > 0 || s.morning !== null || s.weekly || s.cal || s.dca > 0;
+      L.push(row(has, `Haber verilecek şeyler: ${s.watch} izlenen varlık, ${s.alerts} bekleyen alarm${s.morning !== null ? ', sabah özeti ' + String(s.morning).padStart(2, '0') + ':00' : ''}${s.weekly ? ', haftalık rapor' : ''}${s.cal ? ', ekonomi takvimi' : ''}${s.dca ? ', ' + s.dca + ' düzenli alım hatırlatıcısı' : ''}.`, 'Haber verilecek bir şey yok: Portföye varlık ekle, fiyat alarmı kur ya da sabah özeti, haftalık rapor veya ekonomi takvimi bildirimini aç.'));
     }
     const c = s.cron, min = c && c.at ? Math.max(0, Math.round((s.now - c.at) / 60000)) : null, t = (m) => (m < 60 ? m + ' dakika' : m < 1440 ? Math.round(m / 60) + ' saat' : Math.round(m / 1440) + ' gün');
     if (min === null) L.push(row(false, '', '<b>Zamanlayıcı hiç çalışmamış.</b> Uygulama kapalıyken bildirim gelmesi için cron-job.org kaydının kurulması gerekir (KURULUM.md, 3. adım).'));
@@ -1924,7 +2058,7 @@ function viewFxPortfoy() {
   const body = rows.length ? fxPanel() : `<section class="panel"><div class="empty">Henüz altın ya da döviz eklemedin.<br>"Ekle" ile gram altın, dolar ya da euro miktarını gir; değerini ve kâr/zararını burada görürsün.</div></section>`;
   const closed = S.port.filter((h) => h.kind === 'fx' && !(h.qty > 0));
   const closedP = closed.length ? `<section class="panel" style="margin-top:14px"><h2>Tamamen sattıkların</h2><div class="rows">${closed.map((h) => `<button class="row prow" data-pedit="${esc(h.u)}"><span class="who"><span class="av">${esc(h.sym.slice(0, 3).toUpperCase())}</span><span class="nm"><b>${esc(h.name)}</b><span>Kapandı</span></span></span></button>`).join('')}</div></section>` : '';
-  return head + body + closedP + alertsPanel('fx') + rulesPanel() + notifPanel() + morningPanel() + '<p class="rnote" style="margin:12px 0 0">Altın ve döviz portföyü, coin ve hisse portföyünden ayrı tutulur ve toplamlara katılmaz. Yedek ve taşıma için çark simgesindeki Ayarlar\'ı kullan.</p>';
+  return head + body + closedP + alertsPanel('fx') + rulesPanel() + notifPanel() + morningPanel() + repPanel() + dsPanel() + '<p class="rnote" style="margin:12px 0 0">Altın ve döviz portföyü, coin ve hisse portföyünden ayrı tutulur ve toplamlara katılmaz. Yedek ve taşıma için çark simgesindeki Ayarlar\'ı kullan.</p>';
 }
 // Altın ve döviz kayıtları, kendi toplamıyla (hep TL).
 function fxPanel() {
@@ -1976,7 +2110,7 @@ function viewPortfoy() {
     <label>Başka cihazdan gelen kodu yapıştır<textarea id="pimp" rows="3" placeholder="kp1. ile başlayan kod">${esc(S.pimp)}</textarea></label>
     <div class="acts"><button class="btn" id="pdoimp">İçe aktar</button></div><div class="err" id="pimperr"></div>
     <span class="hint">İçe aktarınca bu cihazdaki portföy kodla değiştirilir.</span></div></section>`;
-  return head + fail + body + closedP + alertsPanel(kind) + rulesPanel() + notifPanel() + morningPanel() + backup;
+  return head + fail + body + closedP + alertsPanel(kind) + rulesPanel() + notifPanel() + morningPanel() + repPanel() + dsPanel() + backup;
 }
 function showSheet(html, label) {
   $('#sheet').setAttribute('aria-label', label); $('#sheet').innerHTML = html; $('#scrim').hidden = false; S.sel = null;
@@ -2243,7 +2377,7 @@ function openSheet(id) {
   $('#scrim').hidden = false;
   $('#close').focus();
 }
-function closeSheet() { $('#scrim').hidden = true; S.sel = null; chartStop(); }
+function closeSheet() { $('#scrim').hidden = true; S.sel = null; S.tsheet = false; S.wkOpen = false; chartStop(); }
 
 /* ---------- Veri ---------- */
 async function getJson(url, ms) {
@@ -2368,6 +2502,312 @@ function openPlan() {
     <div id="planout">${planOutHtml()}</div>`, 'Yatırım planı');
   if (S.plan.scope === 'both' && S.sstate === 'idle') loadStockWorld();
 }
+/* ---------- Araçlar: keşke alsaydım, düzenli alım, karşılaştırma, ekonomi takvimi, haftalık rapor ---------- */
+const FXA = [{ k: 'f', id: 'fx:usd', sym: 'USD', name: 'Dolar', cur: 'TRY' }, { k: 'f', id: 'fx:eur', sym: 'EUR', name: 'Euro', cur: 'TRY' }, { k: 'f', id: 'fx:gold', sym: 'PAXG', name: 'Gram altın', cur: 'TRY' }];
+const toolAsset = (c) => (c.kind === 'fx' ? FXA.find((x) => x.id === c.id) || null : isStock(c) ? { k: 's', id: c.id, sym: c.symbol, mk: c.mk, cur: c.cur, name: c.name } : { k: 'c', id: c.id, sym: String(c.symbol).toUpperCase(), cur: 'USD', name: c.name });
+function toolFind(q) {
+  q = (q || '').trim().toLowerCase();
+  const fx = FXA.filter((x) => !q || x.name.toLowerCase().includes(q) || x.sym.toLowerCase() === q || (q.length >= 3 && 'altın'.startsWith(q) && x.id === 'fx:gold'));
+  const canon = Object.keys(S.canon).length > 0, coins = S.coins.filter((c) => (canon ? S.canon[String(c.symbol).toUpperCase()] === c.id : (c.rank || 9999) <= 300) && (!q || searchHit(c, q))).slice(0, q ? 8 : 3).map(toolAsset);
+  const st = S.sitems.filter((c) => !q || searchHit(c, q)).slice(0, q ? 8 : 2).map(toolAsset);
+  return (q ? [...coins, ...st, ...fx] : [...coins, ...fx, ...st]).slice(0, 9);
+}
+const tlbl = (a) => (a ? `${esc(a.name)} <span class="sub">${a.k === 'f' ? 'TL' : esc(a.sym)}${a.k === 's' ? ' · ' + mkName(a) : ''}</span>` : '');
+function pickerHtml(slot, label) {
+  const a = S.t[slot];
+  if (a) return `<div class="tpick"><span class="sub">${label}</span><div class="tsel"><b>${tlbl(a)}</b><button class="btn" data-tchange="${slot}">Değiştir</button></div></div>`;
+  return `<div class="tpick"><span class="sub">${label}</span><div class="bar" style="margin:4px 0 0"><input id="tq-${slot}" type="search" autocomplete="off" placeholder="Coin, hisse, altın ya da dolar ara" aria-label="${label}"></div><div class="chips tres" id="tres-${slot}">${tresHtml(slot, '')}</div></div>`;
+}
+const tresHtml = (slot, q) => { const l = toolFind(q); return l.length ? l.map((a) => `<button class="chip" data-tpick="${slot}|${esc(a.id)}">${esc(a.k === 'c' ? a.sym : a.name)}</button>`).join('') : '<span class="sub">Sonuç yok.</span>'; };
+const tassetById = (id) => FXA.find((x) => x.id === id) || (byId(id) ? toolAsset(byId(id)) : null);
+// Varlığın TL cinsinden geçmiş fiyat serisi. Dolar/euro fiyatlı olanlar o günün kuruyla TL'ye çevrilir.
+async function tlSeries(a, p) {
+  const key = a.id + '|' + p, hit = S.tc[key];
+  if (hit && Date.now() - hit.at < 300000) return hit;
+  const get = (q) => getJson('/api/chart?' + q + '&p=' + p, 15000);
+  let out;
+  if (a.id === 'fx:usd' || a.id === 'fx:eur') { const j = await get('k=f&sym=' + a.sym); out = { t: j.t, v: j.v, fxOk: true }; }
+  else {
+    const j = await get(a.k === 's' ? `k=s&sym=${encodeURIComponent(a.sym)}&mk=${a.mk}` : 'k=c&sym=' + encodeURIComponent(a.id === 'fx:gold' ? 'PAXG' : a.sym));
+    const kk = a.id === 'fx:gold' ? 1 / 31.1035 : 1, cur = a.k === 's' ? a.cur : 'USD';
+    if (cur === 'TRY') out = { t: j.t, v: j.v.map((x) => x * kk), fxOk: true };
+    else {
+      let f = null; try { f = await get('k=f&sym=' + cur); } catch (e) { f = null; }
+      if (f && f.t && f.t.length > 1) out = { ...mulSeries({ t: j.t, v: j.v }, f, kk), fxOk: true };
+      else { const r = S.fx && S.fx[cur]; if (!r) throw new Error('kur'); out = { t: j.t, v: j.v.map((x) => x * r * kk), fxOk: false }; }
+    }
+  }
+  if (!out.t || out.t.length < 2) throw new Error('veri yok');
+  out.at = Date.now(); S.tc[key] = out; return out;
+}
+const tdate = (ts) => new Date(ts).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+const tlm = (v) => money(v, 'TRY');
+function linesSvg(series, h = 120) {
+  const all = series.flatMap((s) => s.v), t0 = Math.min(...series.map((s) => s.t[0])), t1 = Math.max(...series.map((s) => s.t[s.t.length - 1]));
+  const lo = Math.min(...all), hi = Math.max(...all), rg = hi - lo || 1, W2 = 300;
+  const path = (s) => s.t.map((t, i) => (i ? 'L' : 'M') + (((t - t0) / (t1 - t0 || 1)) * W2).toFixed(1) + ' ' + (h - 4 - ((s.v[i] - lo) / rg) * (h - 8)).toFixed(1)).join('');
+  return `<svg class="tlines" viewBox="0 0 ${W2} ${h}" preserveAspectRatio="none" role="img" aria-label="Karşılaştırma grafiği">${series.map((s) => `<path d="${path(s)}" fill="none" stroke="${s.c}" stroke-width="2" vector-effect="non-scaling-stroke"${s.dash ? ' stroke-dasharray="4 3"' : ''}/>`).join('')}</svg>`;
+}
+const tlegend = (l) => `<div class="legend">${l.map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}</div>`;
+function toolsCard() {
+  return `<section class="panel span2"><h2>Araçlar</h2><div class="sub" style="margin-bottom:10px">Geçmiş fiyatlarla hesapla, karşılaştır, önemli günleri takip et.</div>
+    <div class="tkit"><button class="tcard" data-tool="whatif"><b>Keşke alsaydım</b><span>Geçmişte alsaydın bugün ne olurdu?</span></button>
+    <button class="tcard" data-tool="dca"><b>Düzenli alım</b><span>Her ay biraz alsaydın ne olurdu?</span></button>
+    <button class="tcard" data-tool="cmp"><b>Karşılaştır</b><span>İki varlığı yan yana koy.</span></button>
+    <button class="tcard" data-tool="cal"><b>Ekonomi takvimi</b><span>Faiz kararı, enflasyon günleri.</span></button>
+    <button class="tcard" data-tool="week"><b>Haftalık rapor</b><span>Portföyünün bu haftası.</span></button></div></section>`;
+}
+// Pano'da: önümüzdeki 7 gündeki önemli olaylar
+function ecoCard() {
+  const l = ecoBetween(trDay(), 7).filter((x) => x.imp >= 3).slice(0, 3); if (!l.length) return '';
+  return `<section class="panel span2"><h2>Yaklaşan önemli günler</h2><div class="ecol">${l.map(ecoRow).join('')}</div><button class="btn" data-tool="cal" style="margin-top:8px">Takvimin tamamı</button></section>`;
+}
+const trDay = () => new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+const ecoWhen = (x) => { const d = new Date(x.ts + 3 * 3600e3), days = Math.round((Date.parse(x.d + 'T00:00:00+03:00') - Date.parse(trDay() + 'T00:00:00+03:00')) / 86400e3); return (days === 0 ? 'Bugün' : days === 1 ? 'Yarın' : `${d.getUTCDate()} ${d.toLocaleDateString('tr-TR', { month: 'long', timeZone: 'UTC' })} ${ECO_GUN[d.getUTCDay()]}`) + ' ' + x.h; };
+const ecoRow = (x) => `<div class="ecor"><span class="ecot num">${ecoWhen(x)}</span><span><b>${esc(x.name)}</b>${x.imp >= 3 ? ' <span class="sig s-hold">önemli</span>' : ''}<br><span class="sub">${esc(x.desc)}${x.approx ? ' Tarih kurala göre hesaplandı, bir-iki gün kayabilir.' : ''}</span></span></div>`;
+function openTool(k) {
+  if (k === 'cal') return openCal();
+  if (k === 'week') return openWeekly();
+  S.t.tool = k; S.t.out = ''; if (!S.t.a && k !== 'cmp') S.t.a = FXA[2];
+  if (S.sstate === 'idle') loadStockWorld().then(() => { for (const s of ['a', 'b']) { const el = $('#tres-' + s); if (el) el.innerHTML = tresHtml(s, ($('#tq-' + s) || {}).value || ''); } });
+  toolSheet();
+}
+function toolSheet() {
+  const k = S.t.tool, T = { whatif: ['Keşke alsaydım', 'Geçmişte alsaydın bugün ne olurdu?'], dca: ['Düzenli alım', 'Her ay aynı tutarla alsaydın'], cmp: ['Karşılaştır', 'İki varlık yan yana, TL bazında'] }[k];
+  const chip = (attr, val, label, on) => `<button class="chip" data-${attr}="${val}" aria-pressed="${on}">${label}</button>`;
+  let form = '';
+  if (k === 'whatif') form = `${pickerHtml('a', 'Ne alsaydım?')}
+      <label>Kaç TL ile?<input id="tamt" inputmode="decimal" autocomplete="off" value="${esc(numField(S.t.amt))}" placeholder="örn. 10.000"></label>
+      <div><div class="sub" style="margin-bottom:4px">Ne zaman?</div><div class="chips" style="margin:0">${[[7, '1 hafta'], [30, '1 ay'], [90, '3 ay'], [182, '6 ay'], [365, '1 yıl'], [730, '2 yıl'], [1095, '3 yıl'], [1825, '5 yıl']].map(([d, n]) => chip('twhen', d, n, !S.t.date && S.t.when === d)).join('')}</div>
+      <label style="margin-top:8px">ya da tarih seç<input id="tdate" type="date" min="${new Date(Date.now() - 1820 * 86400e3).toISOString().slice(0, 10)}" max="${new Date().toISOString().slice(0, 10)}" value="${esc(S.t.date || '')}"></label></div>`;
+  else if (k === 'dca') form = `${pickerHtml('a', 'Neyi alsaydım?')}
+      <label>Her ay kaç TL?<input id="dcamt" inputmode="decimal" autocomplete="off" value="${esc(numField(S.t.mon))}" placeholder="örn. 2.000"></label>
+      <div><div class="sub" style="margin-bottom:4px">Ne kadar süredir?</div><div class="chips" style="margin:0">${[[6, '6 ay'], [12, '1 yıl'], [24, '2 yıl'], [36, '3 yıl'], [60, '5 yıl']].map(([m, n]) => chip('tmon', m, n, S.t.months === m)).join('')}</div></div>
+      <label>Ayın kaçında?<select id="tday">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${S.t.day === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}</select></label>`;
+  else form = `${pickerHtml('a', 'Birinci varlık')}${pickerHtml('b', 'İkinci varlık')}
+      <div><div class="sub" style="margin-bottom:4px">Dönem</div><div class="chips" style="margin:0">${[['3a', '3 ay'], ['1y', '1 yıl'], ['5y', '5 yıl']].map(([p, n]) => chip('tper', p, n, S.t.per === p)).join('')}</div></div>`;
+  showSheet(`<div class="sh-head"><span class="nm"><h3>${T[0]}</h3><span>${T[1]}</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
+    <section class="panel"><div class="pfform">${form}</div></section><div id="tout" aria-live="polite">${S.t.out}</div>`, T[0]);
+  S.tsheet = true; toolRun();
+}
+let toolGen = 0, toolT = 0;
+const toolRunSoon = () => { clearTimeout(toolT); toolT = setTimeout(toolRun, 450); };
+function toolSave() { store.set('tools', { a: S.t.a, b: S.t.b, amt: S.t.amt, when: S.t.when, mon: S.t.mon, months: S.t.months, day: S.t.day, per: S.t.per }); }
+async function toolRun() {
+  const k = S.t.tool, gen = ++toolGen, set = (h) => { if (gen !== toolGen) return; S.t.out = h; const el = $('#tout'); if (el) el.innerHTML = h; };
+  toolSave();
+  const a = S.t.a, b = S.t.b;
+  if (!a || (k === 'cmp' && !b)) return set('<div class="hint" style="margin-top:10px">' + (k === 'cmp' ? 'Karşılaştırmak için iki varlık seç.' : 'Bir varlık seç.') + '</div>');
+  if (k === 'cmp' && a.id === b.id) return set('<div class="hint" style="margin-top:10px">İki farklı varlık seç.</div>');
+  set('<div class="hint" style="margin-top:10px">Geçmiş fiyatlar alınıyor…</div>');
+  try {
+    if (k === 'whatif') set(await whatIfHtml(a));
+    else if (k === 'dca') set(await dcaHtml(a));
+    else set(await cmpHtml(a, b));
+  } catch (e) { set(`<div class="panel" style="margin-top:14px"><b>Geçmiş fiyat alınamadı.</b><div class="sub">${a.k === 'c' ? 'Bu coin Binance\'te listelenmiyor olabilir. ' : ''}Birkaç dakika sonra tekrar dene.</div></div>`); }
+}
+const tnote = (s) => (s.fxOk ? '' : ' Geçmiş kur alınamadığı için bugünkü kurla çevrildi; sonuç yaklaşıktır.');
+async function whatIfHtml(a) {
+  const amt = parseNumTr(S.t.amt); if (!(amt > 0)) return '<div class="hint" style="margin-top:10px">Tutarı yaz.</div>';
+  const from = S.t.date ? Date.parse(S.t.date + 'T12:00:00+03:00') : Date.now() - S.t.when * 86400e3;
+  if (!(from < Date.now() - 86400e3)) return '<div class="hint" style="margin-top:10px">Geçmiş bir tarih seç.</div>';
+  const days = (Date.now() - from) / 86400e3, p = days <= 368 ? '1y' : '5y';
+  const s = await tlSeries(a, p), r = whatIf(s.t, s.v, from, amt);
+  if (!r) return '<div class="hint" style="margin-top:10px">Bu tarih için veri yok.</div>';
+  let usd = '';
+  if (a.id !== 'fx:usd') { try { const u = await tlSeries(FXA[0], p), ru = whatIf(u.t, u.v, r.date, amt); if (ru) usd = `<div class="sub" style="margin-top:6px">Aynı parayla o gün <b>dolar</b> alsaydın bugün <b class="num">${tlm(ru.value)}</b> (${pct(ru.pct)}) olurdu. Hiçbir şey almayıp TL tutsaydın ${tlm(amt)} olarak kalırdı.</div>`; } catch (e) {} }
+  const unit = a.k === 'f' ? (a.id === 'fx:gold' ? ' gram' : ' ' + a.sym) : a.k === 's' ? ' adet' : ' ' + a.sym;
+  return `<section class="panel" style="margin-top:14px"><div class="sub">${tdate(r.date)} günü ${tlm(amt)} ile ${esc(a.name)} alsaydın bugün</div>
+    <div class="pf-total num ${tcls(r.gain)}">${tlm(r.value)}</div><div class="pf-line"><span><b class="num ${tcls(r.gain)}">${sgn(r.gain, 'TRY')}</b> <span class="num ${tcls(r.gain)}">(${pct(r.pct)})</span></span></div>
+    <div class="sub" style="margin-top:8px">O gün 1${a.id === 'fx:gold' ? ' gram' : a.k === 's' ? ' adet' : ' ' + esc(a.sym)} ${tlm(r.buy)}, bugün ${tlm(r.now)}. ${fmtQty(Number(r.units.toPrecision(6)))}${esc(unit)} alırdın.</div>
+    ${r.low < amt * 0.99 || r.high > r.value * 1.01 ? `<div class="sub" style="margin-top:6px">Bu süre içinde ${[r.low < amt * 0.99 ? `değeri en düşük <b class="num">${tlm(r.low)}</b> (${tdate(r.lowDate)})` : '', r.high > r.value * 1.01 ? `en yüksek <b class="num">${tlm(r.high)}</b> (${tdate(r.highDate)})` : ''].filter(Boolean).join(', ')} oldu.</div>` : ''}${usd}
+    ${r.short ? `<p class="rnote warn" style="margin:8px 0 0">Bu varlığın verisi ${tdate(r.first)} tarihinden başlıyor; hesap o günden yapıldı.</p>` : ''}
+    <p class="rnote" style="margin:8px 0 0">TL bazında, ${p === '5y' ? 'haftalık' : 'günlük'} kapanış fiyatlarıyla hesaplandı. Komisyon ve vergi dahil değil.${tnote(s)} Geçmiş getiri geleceği göstermez.</p></section>`;
+}
+async function dcaHtml(a) {
+  const m = parseNumTr(S.t.mon); if (!(m > 0)) return '<div class="hint" style="margin-top:10px">Aylık tutarı yaz.</div>';
+  const p = S.t.months <= 11 ? '1y' : '5y', s = await tlSeries(a, p), r = dcaSim(s.t, s.v, m, S.t.months, S.t.day, Date.now());
+  if (!r) return '<div class="hint" style="margin-top:10px">Bu dönem için veri yok.</div>';
+  const chart = r.path.length > 2 ? `<div class="tchart">${linesSvg([{ t: r.path.map((x) => x[0]), v: r.path.map((x) => x[2]), c: COLORS[0] }, { t: r.path.map((x) => x[0]), v: r.path.map((x) => x[1]), c: 'var(--muted)', dash: true }])}</div>${tlegend([[COLORS[0], 'Birikimin değeri'], ['var(--muted)', 'Yatırdığın para']])}` : '';
+  const has = S.dca.some((x) => x.id === a.id && x.d === S.t.day);
+  return `<section class="panel" style="margin-top:14px"><div class="sub">${r.n} ay boyunca her ay, ayın ${S.t.day}. günü ${tlm(m)} ile ${esc(a.name)} alsaydın</div>
+    <div class="pf-total num ${tcls(r.gain)}">${tlm(r.value)}</div><div class="pf-line"><span>Yatırdığın ${tlm(r.invested)} · <b class="num ${tcls(r.gain)}">${sgn(r.gain, 'TRY')} (${pct(r.pct)})</b></span></div>
+    ${chart}
+    <div class="sub" style="margin-top:8px">Ortalama alış fiyatın ${tlm(r.avg)} olurdu (bugün ${tlm(r.now)}). Hepsini ilk ay tek seferde yatırsaydın bugün ${tlm(r.lump)} (${pct(r.lumpPct)}) olurdu.</div>
+    ${r.short ? `<p class="rnote warn" style="margin:8px 0 0">Veri ${tdate(r.first)} tarihinden başlıyor; ${r.n} aylık alım hesaplandı.</p>` : ''}
+    <p class="rnote" style="margin:8px 0 0">TL bazında, geçmiş kapanış fiyatlarıyla. Komisyon dahil değil.${tnote(s)} Düzenli alım, fiyatın iniş çıkışını ortalamaya yayar ama kâr garantisi vermez.</p></section>
+    <section class="panel" style="margin-top:14px"><h2>Hatırlatıcı</h2><div class="sub" style="margin-bottom:8px">Her ay, ayın ${S.t.day}. günü sabah "${esc(a.name)} alım günü" bildirimi göndereyim mi? Tutar sunucuya gönderilmez.</div>
+    <div class="acts"><button class="btn ${has ? '' : 'primary'}" id="dcarem"${has ? ' disabled' : ''}>${has ? 'Hatırlatıcı kurulu' : 'Her ay hatırlat'}</button></div>${S.push.on ? '' : '<p class="rnote warn" style="margin:8px 0 0">Bildirimin çalışması için Portföy → Bildirimler bölümünden arka plan bildirimini aç.</p>'}</section>`;
+}
+async function cmpHtml(a, b) {
+  const p = S.t.per === '5y' ? '5y' : '1y', [s1, s2] = await Promise.all([tlSeries(a, p), tlSeries(b, p)]);
+  const cut = (s) => { if (S.t.per !== '3a') return s; const from = Date.now() - 91 * 86400e3, i = Math.max(0, s.t.findIndex((x) => x >= from)); return { t: s.t.slice(i), v: s.v.slice(i), fxOk: s.fxOk }; };
+  const x1 = cut(s1), x2 = cut(s2), start = Math.max(x1.t[0], x2.t[0]);
+  const norm = (s) => { const i = Math.max(0, s.t.findIndex((t) => t >= start)), b0 = s.v[i]; return { t: s.t.slice(i), v: s.v.slice(i).map((v) => (v / b0) * 100) }; };
+  const n1 = norm(x1), n2 = norm(x2), st1 = seriesStats(x1.t, x1.v), st2 = seriesStats(x2.t, x2.v);
+  const g1 = n1.v[n1.v.length - 1] - 100, g2 = n2.v[n2.v.length - 1] - 100;
+  const i1 = a.k !== 'f' ? byId(a.id) : null, i2 = b.k !== 'f' ? byId(b.id) : null;
+  const nm = (x) => esc(x.k === 'c' ? x.sym : x.name), c1 = COLORS[0], c2 = COLORS[1];
+  const row = (label, v1, v2) => `<div class="bt-r"><span>${label}</span><span class="num">${v1}</span><span class="num">${v2}</span></div>`;
+  const pc = (v) => (num(v) === null ? '—' : `<span class="${tcls(v)}">${pct(v)}</span>`);
+  const sig = (it) => (it && it.a && it.a.signal !== 'STABİL' && it.a.signal !== 'DÖVİZ' ? `<span class="sig ${it.a.cls}">${it.a.signal}</span>` : '—');
+  const per = { '3a': 'Son 3 ayda', '1y': 'Son 1 yılda', '5y': 'Son 5 yılda' }[S.t.per];
+  const calmer = st1 && st2 ? (st1.vol < st2.vol ? nm(a) : nm(b)) : '';
+  return `<section class="panel" style="margin-top:14px"><div class="tbig">${per} ${nm(a)} <b class="num ${tcls(g1)}">${pct(g1)}</b>, ${nm(b)} <b class="num ${tcls(g2)}">${pct(g2)}</b>.</div>
+    ${calmer ? `<div class="sub">${calmer} daha az oynak (fiyatı daha sakin hareket ediyor).</div>` : ''}
+    <div class="tchart">${linesSvg([{ ...n1, c: c1 }, { ...n2, c: c2 }])}</div>${tlegend([[c1, nm(a)], [c2, nm(b)]])}
+    <div class="sub" style="margin-top:2px">İkisi de ${tdate(start)} günü 100 kabul edildi.</div>
+    <div class="bt b3" style="margin-top:12px"><div class="bt-h"><span></span><span>${nm(a)}</span><span>${nm(b)}</span></div>
+      ${row('Son 1 ay', pc(st1 && st1.c30), pc(st2 && st2.c30))}${S.t.per !== '3a' ? row('Son 3 ay', pc(st1 && st1.c90), pc(st2 && st2.c90)) : ''}${S.t.per === '5y' ? row('Son 1 yıl', pc(st1 && st1.c365), pc(st2 && st2.c365)) : ''}
+      ${row('Oynaklık (yıllık)', st1 ? '%' + Math.round(st1.vol) : '—', st2 ? '%' + Math.round(st2.vol) : '—')}${row('En büyük düşüş', st1 ? pc(st1.dd) : '—', st2 ? pc(st2.dd) : '—')}
+      ${row('Sinyal', sig(i1), sig(i2))}${row('Puan', i1 && i1.a && i1.a.st !== null ? String(i1.a.score) : '—', i2 && i2.a && i2.a.st !== null ? String(i2.a.score) : '—')}${row('Risk', (i1 && i1.a && i1.a.risk) || '—', (i2 && i2.a && i2.a.risk) || '—')}</div>
+    <p class="rnote" style="margin:8px 0 0">Getiriler TL bazında.${tnote(s1.fxOk ? s2 : s1)} Oynaklık, fiyatın ne kadar sert inip çıktığını gösterir; yüksekse risk de yüksektir. En büyük düşüş, dönem içinde zirveden en derin iniştir. Geçmiş getiri geleceği göstermez.</p></section>`;
+}
+function openCal() {
+  const l = ecoBetween(trDay(), 75), on = S.rep.cal;
+  const by = []; for (const x of l) { const g = by[by.length - 1]; if (g && g.d === x.d) g.l.push(x); else by.push({ d: x.d, l: [x] }); }
+  showSheet(`<div class="sh-head"><span class="nm"><h3>Ekonomi takvimi</h3><span>Piyasayı oynatan önemli günler (Türkiye saati)</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
+    <section class="panel"><div class="sub" style="margin-bottom:8px">${on ? '<b>Bildirim açık:</b> her olaydan bir gün önce akşam 20:00 civarı haber veririm.' : 'İstersen her olaydan bir gün önce akşam haber vereyim.'}</div>
+    <div class="acts"><button class="btn ${on ? '' : 'primary'}" id="calnotif">${on ? 'Takvim bildirimini kapat' : 'Bir gün önce haber ver'}</button></div>${S.push.on ? '' : '<p class="rnote warn" style="margin:8px 0 0">Bunun için Portföy → Bildirimler bölümünden arka plan bildirimini aç.</p>'}</section>
+    ${by.length ? by.map((g) => `<section class="panel" style="margin-top:12px"><h2>${ecoWhen(g.l[0]).replace(/ \d\d:\d\d$/, '')}</h2><div class="ecol tm">${g.l.map((x) => `<div class="ecor"><span class="ecot num">${x.h}</span><span><b>${esc(x.name)}</b>${x.imp >= 3 ? ' <span class="sig s-hold">önemli</span>' : ''}<br><span class="sub">${esc(x.desc)}${x.approx ? ' Tarih kurala göre hesaplandı, bir-iki gün kayabilir.' : ''}</span></span></div>`).join('')}</div></section>`).join('') : '<section class="panel" style="margin-top:12px"><div class="empty">Önümüzdeki günlerde kayıtlı olay yok.</div></section>'}
+    <p class="rnote" style="margin:12px 0 0">Tarihler TCMB, ABD Merkez Bankası (Fed), Avrupa Merkez Bankası ve ABD Çalışma Bakanlığı takvimlerinden alındı; ${tdate(Date.parse(ECO_END))} sonrası henüz ekli değil. Kurumlar tarihleri nadiren değiştirebilir.</p>`, 'Ekonomi takvimi');
+}
+// Haftalık rapor (uygulama içi): portföyün miktarlı haftası, varlıkların 7 günlük değişimi, zayıf sinyaller, gelecek hafta.
+function openWeekly() {
+  S.wkOpen = true;
+  if (S.port.some((h) => h.kind === 'stock' && h.qty > 0) && (S.sstate === 'idle' || S.sstate === 'error')) loadStockWorld().then(() => { if (S.wkOpen && !$('#scrim').hidden) weeklySheet(); });
+  if (S.port.some((h) => h.kind === 'coin' && h.qty > 0) && Date.now() - S.pat > 120000) loadPortCoins().then(() => { if (S.wkOpen && !$('#scrim').hidden) weeklySheet(); });
+  weeklySheet();
+}
+function weeklySheet() {
+  const parts = [];
+  for (const kind of ['coin', 'stock']) {
+    const rows = holdRows(kind); if (!rows.length) continue;
+    const live = rows.filter((r) => r.it), title = kind === 'coin' ? 'Coinlerin' : 'Hisselerin';
+    if (!live.length) { parts.push(`<section class="panel" style="margin-top:12px"><h2>${title}</h2><div class="hint">Fiyatlar yükleniyor…</div></section>`); continue; }
+    const wk = S.fx || kind === 'coin' ? portWeek(rows, S.fx, 'TRY', kind) : null;
+    const mv = live.filter((r) => num(r.it.c7) !== null).sort((x, y) => y.it.c7 - x.it.c7);
+    const weak = live.filter((r) => r.it.a && (r.it.a.signal === 'SAT' || r.it.a.signal === 'AZALT'));
+    parts.push(`<section class="panel" style="margin-top:12px"><h2>${title}</h2>
+      ${wk ? `<div class="tbig">Bu hafta <b class="num ${tcls(wk.abs)}">${sgn(wk.abs, 'TRY')}</b> <span class="num ${tcls(wk.abs)}">(${pct(wk.pct)})</span></div><div class="sub">${tlm(wk.from)} → ${tlm(wk.to)}${kind === 'stock' ? ' · son 5 işlem günü' : ' · son 7 gün'}</div>` : '<div class="sub">Haftalık değer hesaplanamadı (geçmiş fiyat eksik).</div>'}
+      ${mv.length ? `<div class="bt b3" style="margin-top:10px"><div class="bt-h"><span>Varlık</span><span>Bu hafta</span><span>Sinyal</span></div>${mv.map((r) => `<div class="bt-r"><span>${esc(String(r.h.sym).toUpperCase())}</span><span class="num ${tcls(r.it.c7)}">${pct(r.it.c7)}</span><span><span class="sig ${r.it.a ? r.it.a.cls : ''}">${r.it.a ? r.it.a.signal : '—'}</span></span></div>`).join('')}</div>` : ''}
+      ${weak.length ? `<p class="rnote warn" style="margin:8px 0 0">Azalt/Sat sinyali verenler: ${weak.map((r) => esc(String(r.h.sym).toUpperCase())).join(', ')}. Ayrıntısına bakmak isteyebilirsin.</p>` : ''}</section>`);
+  }
+  const nx = ecoBetween(trDay(), 8);
+  showSheet(`<div class="sh-head"><span class="nm"><h3>Haftalık rapor</h3><span>${tdate(Date.now())}</span></span><button class="btn" id="close" aria-label="Kapat">Kapat</button></div>
+    ${parts.length ? parts.join('') : '<section class="panel"><div class="empty">Portföyünde coin ya da hisse yok. Portföy sekmesinden ekleyince haftalık raporun burada çıkar.</div></section>'}
+    <section class="panel" style="margin-top:12px"><h2>Önümüzdeki günler</h2>${nx.length ? `<div class="ecol">${nx.map(ecoRow).join('')}</div>` : '<div class="sub">Kayıtlı önemli olay yok.</div>'}</section>
+    <section class="panel" style="margin-top:12px"><div class="sub" style="margin-bottom:8px">${S.rep.weekly ? '<b>Pazar bildirimi açık:</b> her pazar akşamı 19:00 civarı haftanın özeti gelir.' : 'Her pazar akşamı haftanın özetini bildirim olarak göndereyim mi? Sunucuya miktarların gönderilmez.'}</div>
+    <div class="acts"><button class="btn ${S.rep.weekly ? '' : 'primary'}" id="wknotif">${S.rep.weekly ? 'Pazar bildirimini kapat' : 'Her pazar gönder'}</button></div>${S.push.on ? '' : '<p class="rnote warn" style="margin:8px 0 0">Bunun için Portföy → Bildirimler bölümünden arka plan bildirimini aç.</p>'}</section>
+    <p class="rnote" style="margin:12px 0 0">Haftalık değişim, bugünkü miktarların sabit kabul edilmesiyle hesaplanır. Yatırım tavsiyesi değildir.</p>`, 'Haftalık rapor');
+}
+// Portföy sekmesinde: rapor, takvim ve düzenli alım hatırlatıcıları
+function repPanel() {
+  const r = S.rep;
+  return `<section class="panel" style="margin-top:14px"><h2>Raporlar ve hatırlatıcılar</h2>
+    <div class="trow"><span><b>Haftalık rapor</b><br><span class="sub">Her pazar 19:00 civarı haftanın özeti</span></span><button class="btn ${r.weekly ? '' : 'primary'}" id="wknotif">${r.weekly ? 'Kapat' : 'Aç'}</button></div>
+    <div class="trow"><span><b>Ekonomi takvimi</b><br><span class="sub">Faiz kararı ve enflasyon günlerinden bir gün önce</span></span><button class="btn ${r.cal ? '' : 'primary'}" id="calnotif">${r.cal ? 'Kapat' : 'Aç'}</button></div>
+    ${S.dca.length ? S.dca.map((x) => `<div class="trow"><span><b>Düzenli alım: ${esc(x.name)}</b><br><span class="sub">Her ay, ayın ${x.d}. günü sabah</span></span><button class="btn" data-dcadel="${esc(x.u)}">Sil</button></div>`).join('') : '<div class="sub" style="margin-top:8px">Düzenli alım hatırlatıcısı kurmak için Pano → Araçlar → Düzenli alım.</div>'}
+    <div class="acts" style="margin-top:10px"><button class="btn" data-tool="week">Bu haftanın raporunu aç</button></div>
+    ${S.push.on ? '' : '<p class="rnote warn" style="margin:8px 0 0">Bunlar arka plan bildirimiyle çalışır; yukarıdaki Bildirimler bölümünden aç.</p>'}</section>`;
+}
+const repSave = () => { store.set('rep', S.rep); syncPushSoon(); };
+
+/* ---------- Cihazlar arası eşitleme (uçtan uca şifreli) ---------- */
+// Portföy bu cihazda şifrelenir; sunucu yalnızca okunamaz hâlini saklar. Anahtar, eşitleme kodundan türetilir ve hiçbir yere gönderilmez.
+const DS_AB = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+function dsNorm(s) {
+  let n = String(s || '').toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/[^0-9A-Z]/g, '');
+  if (n.length === 22 && n.startsWith('KP')) n = n.slice(2);
+  return n.length === 20 && [...n].every((c) => DS_AB.includes(c)) ? n : null;
+}
+const dsFmt = (n) => 'KP-' + n.match(/.{5}/g).join('-');
+function dsNew() { const r = crypto.getRandomValues(new Uint8Array(20)); return [...r].map((x) => DS_AB[x & 31]).join(''); }
+async function dsKeys(n) {
+  const enc = new TextEncoder(), h = async (s) => new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(s)));
+  const id = [...(await h('kp-sync-id|' + n))].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const key = await crypto.subtle.importKey('raw', await h('kp-sync-key|' + n), 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return { id, key };
+}
+const u8b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const b64u8 = (s) => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); };
+async function dsSeal(k) {
+  const iv = crypto.getRandomValues(new Uint8Array(12)), data = new TextEncoder().encode(JSON.stringify({ v: 1, port: portEncode(S.port), favs: S.favs }));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k.key, data)), out = new Uint8Array(12 + ct.length);
+  out.set(iv); out.set(ct, 12); return u8b64(out);
+}
+async function dsOpen(k, blob) {
+  const u = b64u8(blob), pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.slice(0, 12) }, k.key, u.slice(12));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+let dsK = null, dsT = 0, dsBusy = false;
+async function dsKey() { if (!S.sync) return null; if (!dsK || dsK.n !== S.sync.code) dsK = { n: S.sync.code, ...(await dsKeys(S.sync.code)) }; return dsK; }
+const dsPost = async (a, o) => { const r = await postJson('/api/sync?a=' + a, o, 15000); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j; };
+function dsPutSoon() { if (!S.sync) return; clearTimeout(dsT); dsT = setTimeout(() => dsPut().catch(() => {}), 1500); }
+async function dsPut() {
+  const k = await dsKey(); if (!k) return;
+  const j = await dsPost('put', { id: k.id, at: S.portAt, blob: await dsSeal(k) });
+  if (j.newer) return dsPull();
+  S.sync.last = Date.now(); S.sync.err = ''; store.set('sync', S.sync);
+}
+function dsApply(o, at) {
+  const l = portDecode(o.port); if (!l) throw new Error('bozuk');
+  S.port = l; S.portAt = at; store.set('port', S.port); store.set('portAt', at);
+  if (Array.isArray(o.favs)) { S.favs = o.favs.filter((x) => typeof x === 'string').slice(0, 300); store.set('favs', S.favs); }
+  S.pcoins = {}; S.pat = 0; syncRuleAlerts(); syncPushSoon();
+  loadPortCoins().then(() => { if ($('#scrim').hidden) render(); });
+}
+// Sunucudaki kayıt bu cihazdakinden yeniyse onu al, eskiyse bu cihazdakini gönder.
+async function dsPull(first) {
+  if (!S.sync || dsBusy) return; dsBusy = true;
+  try {
+    const k = await dsKey(), j = await dsPost('get', { id: k.id });
+    if (j.none) { if (first === 'join') throw new Error('Bu koda ait kayıt bulunamadı. Kodu doğru yazdığından emin ol.'); await dsPut(); }
+    else if (first === 'join' || j.at > S.portAt) {
+      const o = await dsOpen(k, j.blob); dsApply(o, j.at);
+      S.flash = first === 'join' ? `Eşitleme bağlandı: ${S.port.length} varlık diğer cihazdan alındı.` : 'Portföyün diğer cihazdaki son hâliyle güncellendi.';
+    } else if (j.at < S.portAt) await dsPut();
+    S.sync.last = Date.now(); S.sync.err = ''; store.set('sync', S.sync);
+  } catch (e) {
+    if (first === 'join') { dsBusy = false; throw e; }
+    if (S.sync) { S.sync.err = /OperationError|decrypt/i.test(String(e && e.name) + e) ? 'Kayıt çözülemedi: kod yanlış olabilir.' : 'Eşitlenemedi; internet gelince yeniden denenecek.'; }
+  }
+  dsBusy = false;
+  if ($('#scrim').hidden) render();
+}
+async function dsStart() {
+  if (!(window.crypto && crypto.subtle)) { S.syncMsg = 'Bu tarayıcı şifrelemeyi desteklemiyor.'; render(); return; }
+  S.sync = { code: dsNew(), last: 0, err: '' }; dsK = null; store.set('sync', S.sync);
+  if (!S.portAt) { S.portAt = Date.now(); store.set('portAt', S.portAt); }
+  S.syncMsg = ''; render();
+  try { await dsPut(); S.flash = 'Eşitleme açıldı. Kodu diğer cihazına gir.'; } catch (e) { S.sync.err = 'Sunucuya ulaşılamadı; biraz sonra yeniden denenecek.'; }
+  render();
+}
+async function dsJoin(code) {
+  const n = dsNorm(code); if (!n) { S.syncMsg = 'Kod "KP-" ile başlayan 20 harf/rakamdan oluşur. Kontrol edip tekrar yaz.'; render(); return; }
+  if (!(window.crypto && crypto.subtle)) { S.syncMsg = 'Bu tarayıcı şifrelemeyi desteklemiyor.'; render(); return; }
+  const prev = S.sync; S.sync = { code: n, last: 0, err: '' }; dsK = null; S.syncMsg = 'Bağlanıyor…'; render();
+  try { await dsPull('join'); store.set('sync', S.sync); S.syncMsg = ''; S.syncIn = ''; }
+  catch (e) { S.sync = prev; dsK = null; S.syncMsg = /OperationError/.test(String(e && e.name)) ? 'Kod yanlış: kayıt çözülemedi.' : String((e && e.message) || 'Bağlanamadı.').replace(/^HTTP \d+$/, 'Sunucuya ulaşılamadı.'); }
+  render();
+}
+function dsPanel() {
+  const s = S.sync;
+  if (s) return `<section class="panel" style="margin-top:14px"><h2>Cihazlar arası eşitleme</h2>
+    <p class="sub" style="margin:0 0 8px"><b>Açık.</b> Bu cihazda yaptığın değişiklik, aynı kodu girdiğin diğer cihazlara kendiliğinden geçer (uygulama açılınca ve birkaç dakikada bir).</p>
+    <label class="sub">Eşitleme kodun<div class="scode num">${dsFmt(s.code)}</div></label>
+    <div class="acts"><button class="btn" id="scopy">Kodu kopyala</button><button class="btn" id="snow">Şimdi eşitle</button><button class="btn danger" id="soff">Bu cihazda kapat</button></div>
+    <div class="err" id="smsg">${esc(S.syncMsg || s.err || '')}</div>
+    ${s.last ? `<div class="hint">Son eşitleme: ${ago(s.last)}</div>` : ''}
+    <p class="rnote" style="margin:10px 0 0">Portföyün bu cihazda şifrelenir; sunucu yalnızca okunamayan hâlini saklar. <b>Kodu kimseyle paylaşma</b>: kodu bilen portföyünü görebilir. İki cihazda aynı anda değişiklik yaparsan son yapılan geçerli olur.</p></section>`;
+  return `<section class="panel" style="margin-top:14px"><h2>Cihazlar arası eşitleme</h2>
+    <p class="sub" style="margin:0 0 8px">Telefonundaki ve bilgisayarındaki portföy kendiliğinden aynı kalsın. Bir cihazda eşitlemeyi aç, çıkan kodu diğerine gir.</p>
+    <div class="acts"><button class="btn primary" id="son">Eşitlemeyi aç</button></div>
+    <label style="margin-top:12px;display:block">Diğer cihazda açtıysan, oradaki kodu yaz<input id="sin" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KP-XXXXX-XXXXX-XXXXX-XXXXX" value="${esc(S.syncIn || '')}"></label>
+    <div class="acts" style="margin-top:8px"><button class="btn" id="sjoin">Bağla</button></div><div class="err" id="smsg">${esc(S.syncMsg || '')}</div>
+    <span class="hint">Bağlayınca bu cihazdaki portföy, diğer cihazdakiyle değiştirilir.</span></section>`;
+}
+
 /* ---------- Otomatik kurallar (maliyete göre alarm) ---------- */
 // Kural açıkken her varlık için maliyetin altına/üstüne iki alarm kurulur; mevcut alarm sistemiyle çalışır, sunucuya yalnız hedef fiyat gider.
 function syncRuleAlerts() {
@@ -2471,6 +2911,7 @@ function openSettings(msg, bad) {
 /* ---------- Bildirimden açma ---------- */
 // Bildirime tıklanınca ilgili coin/hisse dünyasına geçip detay sayfasını açar (veri gelene kadar bekler).
 function openFromNote(k, id) {
+  if (k === 'r') { if (!S.kind) setKind('coin'); setTimeout(() => (id === 'cal' ? openCal() : openWeekly()), 400); return; }
   if (!id || (k !== 'c' && k !== 's' && k !== 'f')) return;
   setKind(k === 's' ? 'stock' : k === 'f' ? 'fx' : 'coin');
   let n = 0;
@@ -2604,12 +3045,12 @@ document.addEventListener('click', (e) => {
   else if (t.id === 'pdemo') { importPort(DEMO_PORT.map((r, i) => ({ u: 'd' + i, kind: r[0] === 'c' ? 'coin' : 'stock', id: r[1], sym: r[2], name: r[3], qty: r[4], cost: r[5], ccy: r[6], src: r[7], est: false }))); S.flash = 'Örnek portföy yüklendi (gerçek değil).'; render(); }
   else if (t.id === 'fav') {
     S.favs = S.favs.includes(S.sel) ? S.favs.filter((x) => x !== S.sel) : [...S.favs, S.sel];
-    store.set('favs', S.favs); openSheet(S.sel); render();
+    store.set('favs', S.favs); S.portAt = Date.now(); store.set('portAt', S.portAt); dsPutSoon(); openSheet(S.sel); render();
   }
 });
 // Tutar ve miktar alanları: yazarken binlik noktası (10.000), ondalık için virgül (0,05). Yakalama aşamasında çalışır,
 // böylece aşağıdaki işleyiciler alanı hep biçimli okur. Nokta tuşu: sıfırdan sonra ondalık, başka yerde binlik ayracı sayılır.
-const NUMF = new Set(['cvamt', 'alp', 'txq', 'txp', 'pqty', 'pamt', 'pcost', 'planamt']);
+const NUMF = new Set(['cvamt', 'alp', 'txq', 'txp', 'pqty', 'pamt', 'pcost', 'planamt', 'tamt', 'dcamt']);
 document.addEventListener('input', (e) => {
   const el = e.target;
   if (!el || !NUMF.has(el.id)) return;
@@ -2666,6 +3107,47 @@ document.addEventListener('change', (e) => {
   if (e.target.id === 'sort') { S.sort = e.target.value; render(); }
   else if (e.target.id === 'cur') { S.cur = e.target.value; store.set('cur', S.cur); load(); }
 });
+// Araçlar, raporlar ve eşitleme düğmeleri
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  const press = (attr, val) => document.querySelectorAll(`[data-${attr}]`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr.replace(/-./g, (m) => m[1].toUpperCase())] === String(val))));
+  if (t.dataset.tool) { openTool(t.dataset.tool); return; }
+  if (t.dataset.tpick) { const [slot, id] = t.dataset.tpick.split('|'); const a = tassetById(id); if (a) { S.t[slot] = a; toolSheet(); } return; }
+  if (t.dataset.tchange) { S.t[t.dataset.tchange] = null; toolSheet(); const q = $('#tq-' + t.dataset.tchange); if (q) q.focus(); return; }
+  if (t.dataset.twhen) { S.t.when = Number(t.dataset.twhen); S.t.date = ''; const d = $('#tdate'); if (d) d.value = ''; press('twhen', S.t.when); toolRun(); return; }
+  if (t.dataset.tmon) { S.t.months = Number(t.dataset.tmon); press('tmon', S.t.months); toolRun(); return; }
+  if (t.dataset.tper) { S.t.per = t.dataset.tper; press('tper', S.t.per); toolRun(); return; }
+  if (t.id === 'dcarem') {
+    const a = S.t.a; if (!a || S.dca.length >= 10) return;
+    S.dca.push({ u: 'd' + Date.now().toString(36), k: a.k, id: a.id, sym: a.sym, name: a.name, d: S.t.day }); store.set('dca', S.dca); syncPushSoon(); toolRun(); return;
+  }
+  if (t.dataset.dcadel) { S.dca = S.dca.filter((x) => x.u !== t.dataset.dcadel); store.set('dca', S.dca); syncPushSoon(); render(); return; }
+  if (t.id === 'wknotif' || t.id === 'calnotif') {
+    const f = t.id === 'wknotif' ? 'weekly' : 'cal'; S.rep[f] = !S.rep[f]; repSave();
+    if (t.closest('#sheet')) { if (f === 'weekly') weeklySheet(); else openCal(); } else render();
+    return;
+  }
+  if (t.id === 'son') { dsStart(); return; }
+  if (t.id === 'sjoin') { const el = $('#sin'); dsJoin(el ? el.value : ''); return; }
+  if (t.id === 'snow') { S.syncMsg = ''; dsPull().then(() => { const m = $('#smsg'); if (m && S.sync && !S.sync.err) { m.className = 'hint'; m.textContent = 'Eşitlendi.'; } }); return; }
+  if (t.id === 'soff') { S.sync = null; dsK = null; store.set('sync', null); S.syncMsg = ''; S.flash = 'Eşitleme bu cihazda kapatıldı. Portföyün bu cihazda olduğu gibi duruyor.'; render(); return; }
+  if (t.id === 'scopy') { const c = S.sync ? dsFmt(S.sync.code) : ''; (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject()).then(() => { const m = $('#smsg'); if (m) { m.className = 'hint'; m.textContent = 'Kod kopyalandı.'; } }).catch(() => { const m = $('#smsg'); if (m) { m.className = 'hint'; m.textContent = 'Kopyalanamadı; kodu elle yaz: ' + c; } }); return; }
+});
+document.addEventListener('input', (e) => {
+  const id = e.target.id;
+  if (id === 'tq-a' || id === 'tq-b') { const s = id.slice(3), el = $('#tres-' + s); if (el) el.innerHTML = tresHtml(s, e.target.value); return; }
+  if (id === 'tamt') { S.t.amt = e.target.value; toolRunSoon(); return; }
+  if (id === 'dcamt') { S.t.mon = e.target.value; toolRunSoon(); return; }
+  if (id === 'sin') { S.syncIn = e.target.value; return; }
+});
+document.addEventListener('change', (e) => {
+  const id = e.target.id;
+  if (id === 'tdate') { S.t.date = e.target.value; document.querySelectorAll('[data-twhen]').forEach((b) => b.setAttribute('aria-pressed', String(!S.t.date && Number(b.dataset.twhen) === S.t.when))); toolRun(); return; }
+  if (id === 'tday') { S.t.day = Number(e.target.value) || 1; toolRun(); return; }
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.sync) dsPull(); });
+setInterval(() => { if (!document.hidden && S.sync) dsPull(); }, 180000);
+if (S.sync) setTimeout(() => dsPull(), 1500);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#scrim').hidden) closeSheet(); });
 $('#cur').value = S.cur;
 applyLook();

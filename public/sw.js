@@ -1,5 +1,5 @@
 // Önce ağ, olmazsa önbellek: çevrimdışıyken son görülen ekran açılır.
-const NAME = 'kripto-pusula-v7';
+const NAME = 'kripto-pusula-v8';
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(NAME).then((c) => c.addAll(['/']))); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== NAME).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 // Sunucudan gelen boş "dürtme": asıl bildirim metnini sunucudan alıp gösterir (iPhone her dürtmede bildirim gösterilmesini şart koşar).
@@ -19,7 +19,7 @@ self.addEventListener('push', (e) => {
 });
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const d = e.notification.data || {}, open = d.id && (d.k === 'c' || d.k === 's' || d.k === 'f') ? { k: d.k, id: d.id } : null;
+  const d = e.notification.data || {}, open = d.id && (d.k === 'c' || d.k === 's' || d.k === 'f' || d.k === 'r') ? { k: d.k, id: d.id } : null;
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ws) => {
     if (ws.length) { const w = ws[0]; if (open) w.postMessage({ open }); return w.focus(); }
     return self.clients.openWindow(open ? '/?open=' + open.k + ':' + encodeURIComponent(open.id) : '/');

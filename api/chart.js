@@ -1,10 +1,10 @@
 // Tek bir coin veya hisse için seçilen dönemin fiyat çizgisi.
 // Coin: Binance herkese açık mum verisi (SYMBOLUSDT). Hisse: Yahoo Finance grafik verisi. Anahtar gerekmez.
 // k=f: döviz kuru (sym=USD ya da EUR, Yahoo'daki USDTRY=X gibi). GET /api/chart?k=c&sym=BTC&p=1g   |   GET /api/chart?k=s&sym=THYAO&mk=bist&p=1a
-// p: 1s (1 saat), 1g (1 gün), 1h (1 hafta), 1a (1 ay), 3a (3 ay), 1y (1 yıl)
-const BINANCE = { '1s': ['1m', 60], '1g': ['5m', 288], '1h': ['1h', 168], '1a': ['4h', 180], '3a': ['1d', 90], '1y': ['1d', 365] };
-const YAHOO = { '1s': ['1d', '1m', 60], '1g': ['1d', '5m', 0], '1h': ['5d', '30m', 0], '1a': ['1mo', '60m', 0], '3a': ['3mo', '1d', 0], '1y': ['1y', '1d', 0] };
-const TTL = { '1s': 15, '1g': 20, '1h': 60, '1a': 120, '3a': 300, '1y': 300 };
+// p: 1s (1 saat), 1g (1 gün), 1h (1 hafta), 1a (1 ay), 3a (3 ay), 1y (1 yıl), 5y (5 yıl, haftalık)
+const BINANCE = { '1s': ['1m', 60], '1g': ['5m', 288], '1h': ['1h', 168], '1a': ['4h', 180], '3a': ['1d', 90], '1y': ['1d', 365], '5y': ['1w', 262] };
+const YAHOO = { '1s': ['1d', '1m', 60], '1g': ['1d', '5m', 0], '1h': ['5d', '30m', 0], '1a': ['1mo', '60m', 0], '3a': ['3mo', '1d', 0], '1y': ['1y', '1d', 0], '5y': ['5y', '1wk', 0] };
+const TTL = { '1s': 15, '1g': 20, '1h': 60, '1a': 120, '3a': 300, '1y': 300, '5y': 3600 };
 const cache = new Map();
 
 const out = (res, code, obj, p) => {
